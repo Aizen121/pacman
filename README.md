@@ -154,7 +154,9 @@ Why these limits:
 - Pixel-by-pixel drawing is slow, so static graphics (sprites, the maze of the current level) are rendered once into off-screen surfaces and copied every frame.
 - Pac-Man moves on the grid as a cell plus a progress toward the next cell. He goes 4 cells per second on level 1, and 0.2 more on each following level. He turns at cell centres, remembering a direction pressed too early, and can make a U-turn at any time. Walls are checked with the maze's wall bitmask.
 - Pac-Man is drawn by code as a disc minus a mouth wedge, pre-rendered in 12 frames (4 directions × 3 mouth openings). The mouth closes on each cell centre and opens wide halfway, so he chomps once per cell, at his own speed.
-- **TODO:** ghost AI (tasks 6.x), cheat mode (tasks 10.x), packaging (tasks 12.x).
+- Pac-Man eats a pacgum or a super-pacgum when he arrives on its cell, and scores the points set in the configuration. A level is won once every pacgum and super-pacgum is eaten. The next level then starts with the same score. After the last level, the game goes back to the main menu until the victory screen exists.
+- The score and the level number are shown left of the maze.
+- **TODO:** lives and level timer in the HUD (tasks 5.7, 5.8), ghost AI (tasks 6.x), victory and game-over screens (task 8.4), cheat mode (tasks 10.x), packaging (tasks 12.x).
 
 ## General Software Architecture
 
@@ -214,3 +216,4 @@ We use AI (Claude Code, by Anthropic) as a pair-programming tutor. It reads and 
 | 2026-10-20 | Maze integration fixes (4.3, part of 4.4) | Found and proposed fixes for the crash of levels 2 to 10 (invalid seed), the generator failure handling and the player start inside the "42"; added 9 level tests; Amine approved the code before it was written |
 | 2026-10-20 | Player movement (5.5) | Proposed the grid movement model (cell + progress, turns at cell centres, remembered direction, immediate U-turn), the arrow and WASD key mapping by physical key, and 7 movement tests; Amine approved the code before it was written |
 | 2026-10-20 | Pac-Man sprite and speed (7.4, 5.5) | Rendered a preview of two pixel-drawn styles; after Amine's choice, proposed the animated sprite (12 pre-rendered frames, mouth synced with the movement), a speed that grows with the level, and 6 tests; Amine approved the code before it was written |
+| 2026-10-21 | Pacgums, score and levels (5.6, part of 5.8 and 7.5) | Proposed eating on arrival, the score with its HUD display, the level change once everything is eaten, and 8 tests; checked the result on a screenshot; Amine approved the code before it was written |

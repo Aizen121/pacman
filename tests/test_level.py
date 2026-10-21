@@ -52,3 +52,37 @@ def test_generator_failure_stops_cleanly(
     with pytest.raises(SystemExit):
         make_level(15, 15)
     assert "maze generator failed" in capsys.readouterr().err
+
+
+def test_no_pacgum_under_the_player() -> None:
+    """The starting cell never holds a pacgum."""
+    for size in (5, 10, 15, 42):
+        level = make_level(size, size)
+        assert level.player_start not in level.pacgums
+
+
+def test_pacgums_are_capped_with_a_message(
+        capsys: pytest.CaptureFixture[str]) -> None:
+    """A small maze gets one pacgum per free cell, and says so."""
+    level = make_level(5, 5)  # 25 cells - 4 corners - 1 start = 20
+    assert len(level.pacgums) == 20
+    assert "room for 20 pacgums" in capsys.readouterr().err
+
+
+def test_eat_gives_points_once() -> None:
+    """A pacgum gives 10 points once; a super-pacgum gives 50."""
+    level = make_level(15, 15)
+    pacgum = next(iter(level.pacgums))
+    assert level.eat(pacgum) == 10
+    assert level.eat(pacgum) == 0
+    assert level.eat((0, 0)) == 50  # a corner holds a super-pacgum
+    assert level.eat(level.player_start) == 0
+
+
+def test_level_is_cleared_when_everything_is_eaten() -> None:
+    """The level is won once all pacgums and super-pacgums are eaten."""
+    level = make_level(15, 15)
+    for cell in list(level.pacgums) + level.corners:
+        assert not level.cleared
+        level.eat(cell)
+    assert level.cleared

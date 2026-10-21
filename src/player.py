@@ -77,27 +77,35 @@ class Player:
             self.direction = direction
             self.facing = direction
 
-    def update(self, maze: list[list[int]], dt: float) -> None:
+    def update(self, maze: list[list[int]],
+               dt: float) -> list[tuple[int, int]]:
         """Move speed * dt cells along the corridors.
 
         On each cell centre the player takes the wanted direction if it is
         open, otherwise keeps going straight, and stops against a wall.
+
+        Returns:
+            The cells reached during this move, in order: usually none or
+            one, several only if the frame took very long.
         """
+        reached: list[tuple[int, int]] = []
         distance = self.speed * dt
         while distance > 0:
             if self.progress == 0:
                 self.direction = self._next_direction(maze)
             if self.direction is None:
-                return
+                break
             self.facing = self.direction
             remaining = 1 - self.progress
             if distance < remaining:
                 self.progress += distance
-                return
+                break
             distance -= remaining
             dx, dy, _ = DIRECTIONS[self.direction]
             self.cell = (self.cell[0] + dx, self.cell[1] + dy)
             self.progress = 0.0
+            reached.append(self.cell)
+        return reached
 
     def _next_direction(self, maze: list[list[int]]) -> str | None:
         """Return the direction to follow from a cell centre, or None."""

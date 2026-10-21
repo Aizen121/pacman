@@ -26,10 +26,13 @@ class Gameplay:
         self.config = config
         self.scores = scores
         self.level_timer = 0
+        self.score = 0
+        self.level_index = 0
         self._load_level(0)
 
     def _load_level(self, level: int) -> None:
 
+        self.level_index = level
         seed = self.config.seed if level == 0 else RANDOM_SEED
         self.level = Level(self.config.levels[level], self.config, seed)
         self.level.player.speed = level_speed(level)
@@ -52,7 +55,18 @@ class Gameplay:
                              or WASD_SCANCODES.get(event.scancode))
                 if direction is not None:
                     self.level.player.turn(direction)
-        self.level.player.update(self.level.maze, dt)
+        for cell in self.level.player.update(self.level.maze, dt):
+            self.score += self.level.eat(cell)
+        if self.level.cleared:
+            self._next_level()
+
+    def _next_level(self) -> None:
+        """Load the next level, or go back to the menu after the last one."""
+        if self.level_index + 1 < len(self.config.levels):
+            self._load_level(self.level_index + 1)
+        else:  # TODO: victory screen and name entry (tasks 8.4 and 9.2)
+            self.state_machine.game_active = False
+            self.state_machine.state = "main_menu"
 
     def draw(self) -> None:
 
@@ -61,3 +75,4 @@ class Gameplay:
         player = self.level.player
         self.gui.draw_player(player.position, player.facing,
                              player.mouth_opening)
+        self.gui.draw_hud(self.score, self.level_index + 1)

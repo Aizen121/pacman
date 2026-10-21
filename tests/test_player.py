@@ -114,3 +114,11 @@ def test_mouth_chomps_once_per_cell() -> None:
     assert player.mouth_opening == pytest.approx(1.0)
     player.update(CORRIDOR, STEP / 2)  # reaches the centre of cell 1
     assert player.mouth_opening == pytest.approx(0.0)
+
+
+def test_update_returns_the_cells_reached() -> None:
+    """update() lists every cell reached, so no pacgum is skipped."""
+    player = Player((0, 0))
+    player.turn("right")
+    assert player.update(CORRIDOR, STEP / 2) == []
+    assert player.update(CORRIDOR, 10.0) == [(1, 0), (2, 0)]

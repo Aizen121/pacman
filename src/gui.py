@@ -1,7 +1,7 @@
 import math
 import pygame
 from .constants import FONT, LOGO, PACMAN, TILE, TOP, RIGHT, BOTTOM, LEFT, WALL_COLOR, WALL, MAZE_OFFSET, LOGO_COLOR
-from .constants import FACING_ANGLES, MOUTH_ANGLES, PACMAN_COLOR
+from .constants import FACING_ANGLES, MOUTH_ANGLES, PACMAN_COLOR, TEXT_COLOR
 from src.game.scores import Scores
 
 
@@ -21,6 +21,7 @@ class GUI:
             for facing, angle in FACING_ANGLES.items()
             for frame, mouth in enumerate(MOUTH_ANGLES)
         }
+        self.hud_font = pygame.font.Font(FONT, 20)
  
     def fill_circle(self, surface: pygame.Surface, color: tuple[int, int, int], cx: int, cy: int, radius: int) -> None:
 
@@ -58,7 +59,8 @@ class GUI:
                 sprite.set_at((radius + dx, radius + dy), PACMAN_COLOR)
         return sprite
 
-    def string_put(self, x: int, y: int, color: tuple[int, int, int], font: str, text: str) -> None:
+    def string_put(self, x: int, y: int, color: tuple[int, int, int],
+                   font: pygame.font.Font, text: str) -> None:
 
         string = font.render(text, False, color)
         self.screen.blit(string, (x, y))
@@ -190,3 +192,10 @@ class GUI:
         px = ox + pos[0] * TILE + (TILE - w_player) // 2
         py = oy + pos[1] * TILE + (TILE - h_player) // 2
         self.screen.blit(sprite, (px, py))
+
+    def draw_hud(self, score: int, level: int) -> None:
+        """Draw the score and the level number left of the maze."""
+        self.string_put(30, 60, TEXT_COLOR, self.hud_font, "SCORE")
+        self.string_put(30, 95, TEXT_COLOR, self.hud_font, str(score))
+        self.string_put(30, 160, TEXT_COLOR, self.hud_font, "LEVEL")
+        self.string_put(30, 195, TEXT_COLOR, self.hud_font, str(level))
