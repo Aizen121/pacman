@@ -4,7 +4,7 @@ from pathlib import Path
 import pygame
 import pytest
 
-from src.constants import MAZE_LEFT
+from src.constants import GHOST_COLORS, MAZE_LEFT, PUPIL_COLOR
 from src.gui import GUI
 from src.parser import Config
 
@@ -69,3 +69,26 @@ def test_pacman_stays_smaller_than_a_cell(gui: GUI) -> None:
     for size in (15, 42, 50):
         gui.set_layout(size, size)
         assert gui.pacman_frames[("right", 0)].get_width() < gui.tile
+
+
+def test_ghost_sprite_shape() -> None:
+    """Round head, body color in the middle, transparent corners."""
+    red = GHOST_COLORS["blinky"]
+    sprite = GUI.make_ghost_sprite(RADIUS, red, 0)
+    assert tuple(sprite.get_at((RADIUS, 1)))[:3] == red
+    assert tuple(sprite.get_at((RADIUS, RADIUS)))[:3] == red
+    assert sprite.get_at((0, 0)).a == 0
+
+
+def pupils_x(facing: float) -> float:
+    """Return the mean x of the pupil pixels of a ghost sprite."""
+    sprite = GUI.make_ghost_sprite(RADIUS, GHOST_COLORS["blinky"], facing)
+    size = sprite.get_width()
+    xs = [x for x in range(size) for y in range(size)
+          if tuple(sprite.get_at((x, y)))[:3] == PUPIL_COLOR]
+    return sum(xs) / len(xs)
+
+
+def test_ghost_eyes_look_where_it_goes() -> None:
+    """The pupils move to the right or to the left of the eyes."""
+    assert pupils_x(0) > RADIUS > pupils_x(180)

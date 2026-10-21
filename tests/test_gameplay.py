@@ -8,7 +8,7 @@ from src.game.gameplay import Gameplay
 from src.game.scores import Scores
 from src.gui import GUI
 from src.parser import Config
-from src.player import DIRECTIONS, can_move
+from src.mover import DIRECTIONS, can_move
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -74,6 +74,34 @@ def test_last_level_returns_to_the_menu(gameplay: Gameplay,
     """After the last level, the game goes back to the main menu."""
     gameplay._load_level(len(gameplay.config.levels) - 1)
     clear(gameplay)
+    gameplay.update([], 0)
+    assert app.state == "main_menu"
+    assert app.game_active is False
+
+
+def test_blinky_starts_in_the_top_right_corner(gameplay: Gameplay) -> None:
+    """One ghost for now, a bit slower than Pac-Man."""
+    width, _ = gameplay.level.dimensions
+    [ghost] = gameplay.level.ghosts
+    assert (ghost.name, ghost.cell) == ("blinky", (width - 1, 0))
+    assert ghost.speed == pytest.approx(0.9 * gameplay.level.player.speed)
+
+
+def test_a_ghost_catching_pacman_costs_a_life(gameplay: Gameplay) -> None:
+    """Caught: one life less, Pac-Man and the ghost back to their start."""
+    player, ghost = gameplay.level.player, gameplay.level.ghosts[0]
+    player.cell = ghost.cell = (1, 1)
+    gameplay.update([], 0)
+    assert gameplay.lives == 2
+    assert player.cell == player.start_position
+    assert ghost.cell == ghost.start_position
+
+
+def test_losing_the_last_life_returns_to_the_menu(gameplay: Gameplay,
+                                                  app: FakeApp) -> None:
+    """With no life left, the game goes back to the main menu."""
+    gameplay.lives = 1
+    gameplay.level.ghosts[0].cell = gameplay.level.player.cell
     gameplay.update([], 0)
     assert app.state == "main_menu"
     assert app.game_active is False

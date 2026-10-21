@@ -155,9 +155,11 @@ Why these limits:
 - Pac-Man moves on the grid as a cell plus a progress toward the next cell. He goes 4 cells per second on level 1, and 0.2 more on each following level. He turns at cell centres, remembering a direction pressed too early, and can make a U-turn at any time. Walls are checked with the maze's wall bitmask.
 - Pac-Man is drawn by code as a disc minus a mouth wedge, pre-rendered in 12 frames (4 directions × 3 mouth openings). The mouth closes on each cell centre and opens wide halfway, so he chomps once per cell, at his own speed.
 - Pac-Man eats a pacgum or a super-pacgum when he arrives on its cell, and scores the points set in the configuration. A level is won once every pacgum and super-pacgum is eaten. The next level then starts with the same score. After the last level, the game goes back to the main menu until the victory screen exists.
-- The score and the level number are shown left of the maze.
+- The score, the level number and the lives are shown left of the maze.
+- Ghosts use the same grid movement as Pac-Man, through a shared `Mover` class. At each crossing, a ghost takes the way whose next cell is closest to its target. Distances are counted along the corridors with a breadth-first search, so ghosts go around walls instead of bumping into them. A ghost never turns back on its own, except in a dead end. Blinky (red) targets Pac-Man's cell, at 90 % of his speed.
+- Touching a ghost costs a life: Pac-Man respawns in the middle and the ghost in its corner. With no life left, the game goes back to the main menu until the game-over screen exists.
 - Every maze fits the 1400×800 window. Cells are at most 50 pixels and shrink for big mazes (17 pixels for 42×42). The maze is centred right of the HUD, and its walls and sprites are redrawn at that size. Images are never scaled, because MiniLibX has no equivalent.
-- **TODO:** lives and level timer in the HUD (tasks 5.7, 5.8), ghost AI (tasks 6.x), victory and game-over screens (task 8.4), cheat mode (tasks 10.x), packaging (tasks 12.x).
+- **TODO:** level timer (task 5.8), Pinky, Inky and Clyde and the edible mode (tasks 6.x), victory and game-over screens (task 8.4), cheat mode (tasks 10.x), packaging (tasks 12.x).
 
 ## General Software Architecture
 
@@ -167,12 +169,15 @@ pac-man.py ─ Pacman            application, state machine and main loop
    ├── Scores                  src/game/scores.py    highscore file
    ├── GUI                     src/gui.py            all rendering
    └── Gameplay                src/game/gameplay.py  one game session, created on START
-         └── Level             src/game/level.py     one level: maze, pacgums, player start
+         └── Level             src/game/level.py     one level: maze, pacgums, characters
                ├── MazeGenerator   mazegenerator/    external A-Maze-ing package
-               └── Player          src/player.py
+               ├── Player          src/player.py     Pac-Man, moved by the keyboard
+               └── Ghost           src/ghost.py      chases a target (BFS in src/pathfinding.py)
+
+Player and Ghost both extend Mover (src/mover.py): movement on the grid.
 ```
 
-`Pacman` switches between the states `main_menu`, `highscores`, `instructions` and `game`. **TODO:** pause, game-over and victory states, and ghosts (tasks 6.x).
+`Pacman` switches between the states `main_menu`, `highscores`, `instructions` and `game`. **TODO:** pause, game-over and victory states, and the other three ghosts (tasks 6.x).
 
 ## Project Management
 
@@ -219,3 +224,4 @@ We use AI (Claude Code, by Anthropic) as a pair-programming tutor. It reads and 
 | 2026-10-20 | Pac-Man sprite and speed (7.4, 5.5) | Rendered a preview of two pixel-drawn styles; after Amine's choice, proposed the animated sprite (12 pre-rendered frames, mouth synced with the movement), a speed that grows with the level, and 6 tests; Amine approved the code before it was written |
 | 2026-10-21 | Pacgums, score and levels (5.6, part of 5.8 and 7.5) | Proposed eating on arrival, the score with its HUD display, the level change once everything is eaten, and 8 tests; checked the result on a screenshot; Amine approved the code before it was written |
 | 2026-10-21 | Maze layout (7.3) | Proposed cell sizes computed per level so that every maze fits the window, with walls and sprites redrawn at that size, and 7 tests; showed screenshots of levels 1, 4 and 7; Amine approved the code before it was written |
+| 2026-10-21 | First ghost, Blinky (6.1 to 6.3, 5.7) | Explained the ghost algorithms (target cell, BFS distance, no U-turn, the four personalities, modes); after Amine's choices, proposed the shared `Mover` class, the BFS, Blinky, collisions and lives, the pixel-drawn ghost sprite, and 17 tests; Amine approved the code before it was written |

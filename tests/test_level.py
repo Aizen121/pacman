@@ -86,3 +86,9 @@ def test_level_is_cleared_when_everything_is_eaten() -> None:
         assert not level.cleared
         level.eat(cell)
     assert level.cleared
+
+
+def test_blinky_waits_in_the_top_right_corner() -> None:
+    """The first ghost starts in the top-right corner."""
+    level = make_level(15, 15)
+    assert [(g.name, g.cell) for g in level.ghosts] == [("blinky", (14, 0))]

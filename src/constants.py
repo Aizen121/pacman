@@ -17,3 +17,8 @@ TEXT_COLOR = (255, 253, 208)
 MOUTH_ANGLES = (0, 45, 90)
 # Direction of the mouth, in degrees (the screen y axis points down)
 FACING_ANGLES = {"right": 0, "down": 90, "left": 180, "up": 270}
+# Body color of each ghost, as in the arcade game
+GHOST_COLORS = {"blinky": (255, 0, 0), "pinky": (255, 184, 255),
+                "inky": (0, 255, 255), "clyde": (255, 184, 82)}
+EYE_COLOR = (255, 255, 255)
+PUPIL_COLOR = (33, 33, 222)

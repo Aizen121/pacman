@@ -1,4 +1,5 @@
 from mazegenerator.mazegenerator import MazeGenerator
+from src.ghost import Ghost
 from src.player import Player
 from src.parser import Config, LevelSize
 import sys
@@ -24,6 +25,7 @@ class Level:
         self.super_pacgums = set(self.corners)
         self.available_super_pacgums = set(self.super_pacgums)
         self.player = Player(self.player_start)
+        self.ghosts = [Ghost("blinky", self.corners[1])]
 
     def eat(self, cell: tuple[int, int]) -> int:
         """Eat what lies on cell; return the points it gives (0 if none)."""

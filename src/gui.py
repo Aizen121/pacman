@@ -2,7 +2,8 @@ import math
 import pygame
 from .constants import (FONT, LOGO, PACMAN, TILE, TOP, RIGHT, BOTTOM, LEFT,
                         WALL_COLOR, WALL, MAZE_LEFT, MARGIN, LOGO_COLOR)
-from .constants import FACING_ANGLES, MOUTH_ANGLES, PACMAN_COLOR, TEXT_COLOR
+from .constants import (FACING_ANGLES, MOUTH_ANGLES, PACMAN_COLOR, TEXT_COLOR,
+                        GHOST_COLORS, EYE_COLOR, PUPIL_COLOR)
 from src.game.scores import Scores
 
 
@@ -47,8 +48,15 @@ class GUI:
             for facing, angle in FACING_ANGLES.items()
             for frame, mouth in enumerate(MOUTH_ANGLES)
         }
+        self.ghost_frames = {
+            (name, facing): self.make_ghost_sprite(radius, color, angle)
+            for name, color in GHOST_COLORS.items()
+            for facing, angle in FACING_ANGLES.items()
+        }
  
-    def fill_circle(self, surface: pygame.Surface, color: tuple[int, int, int], cx: int, cy: int, radius: int) -> None:
+    @staticmethod
+    def fill_circle(surface: pygame.Surface, color: tuple[int, int, int],
+                    cx: int, cy: int, radius: int) -> None:
 
         r2 = radius * radius
         for dy in range(-radius, radius + 1):
@@ -82,6 +90,43 @@ class GUI:
                 if abs((angle - facing + 180) % 360 - 180) < mouth / 2:
                     continue  # inside the mouth
                 sprite.set_at((radius + dx, radius + dy), PACMAN_COLOR)
+        return sprite
+
+    @staticmethod
+    def make_ghost_sprite(radius: int, color: tuple[int, int, int],
+                          facing: float) -> pygame.Surface:
+        """Draw a ghost pixel by pixel: round head, wavy skirt, eyes.
+
+        Args:
+            radius: Half the width of the sprite, in pixels.
+            color: Color of the body.
+            facing: Where the eyes look, in degrees (0 = right, 90 = down).
+        """
+        size = radius * 2 + 1
+        sprite = pygame.Surface((size, size), pygame.SRCALPHA)
+        skirt = max(2, radius // 3)  # height of the wavy bottom
+        wave = size / 3  # width of one of the 3 waves
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                if dy < 0:  # round head
+                    inside = dx * dx + dy * dy <= radius * radius
+                elif dy <= radius - skirt:  # straight body
+                    inside = True
+                else:  # waves pointing down
+                    centre = ((dx + radius) // wave + 0.5) * wave - radius
+                    inside = (abs(dx - centre) * skirt
+                              <= (radius - dy) * wave / 2)
+                if inside:
+                    sprite.set_at((radius + dx, radius + dy), color)
+        look_x = round(math.cos(math.radians(facing)) * radius / 8)
+        look_y = round(math.sin(math.radians(facing)) * radius / 8)
+        eye_y = radius - round(radius * 0.2)
+        for side in (-1, 1):
+            eye_x = radius + side * round(radius * 0.4)
+            GUI.fill_circle(sprite, EYE_COLOR, eye_x, eye_y,
+                            max(1, round(radius * 0.3)))
+            GUI.fill_circle(sprite, PUPIL_COLOR, eye_x + look_x,
+                            eye_y + look_y, max(1, round(radius * 0.15)))
         return sprite
 
     def string_put(self, x: int, y: int, color: tuple[int, int, int],
@@ -213,16 +258,27 @@ class GUI:
                     opening: float) -> None:
 
         frame = round(opening * (len(MOUTH_ANGLES) - 1))
-        sprite = self.pacman_frames[(facing, frame)]
+        self._blit_on_cell(self.pacman_frames[(facing, frame)], pos)
+
+    def draw_ghost(self, pos: tuple[float, float], name: str,
+                   facing: str) -> None:
+        """Draw a ghost, its eyes looking where it goes."""
+        self._blit_on_cell(self.ghost_frames[(name, facing)], pos)
+
+    def _blit_on_cell(self, sprite: pygame.Surface,
+                      pos: tuple[float, float]) -> None:
+        """Draw sprite centred on pos, given in cells (can be between two)."""
         ox, oy = self.offset
-        w_player, h_player = sprite.get_size()
-        px = ox + pos[0] * self.tile + (self.tile - w_player) // 2
-        py = oy + pos[1] * self.tile + (self.tile - h_player) // 2
+        width, height = sprite.get_size()
+        px = ox + pos[0] * self.tile + (self.tile - width) // 2
+        py = oy + pos[1] * self.tile + (self.tile - height) // 2
         self.screen.blit(sprite, (px, py))
 
-    def draw_hud(self, score: int, level: int) -> None:
-        """Draw the score and the level number left of the maze."""
+    def draw_hud(self, score: int, level: int, lives: int) -> None:
+        """Draw the score, the level number and the lives left of the maze."""
         self.string_put(30, 60, TEXT_COLOR, self.hud_font, "SCORE")
         self.string_put(30, 95, TEXT_COLOR, self.hud_font, str(score))
         self.string_put(30, 160, TEXT_COLOR, self.hud_font, "LEVEL")
         self.string_put(30, 195, TEXT_COLOR, self.hud_font, str(level))
+        self.string_put(30, 260, TEXT_COLOR, self.hud_font, "LIVES")
+        self.string_put(30, 295, TEXT_COLOR, self.hud_font, str(lives))

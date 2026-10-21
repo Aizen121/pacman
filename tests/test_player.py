@@ -5,8 +5,8 @@ import pytest
 
 from src.game.level import Level
 from src.parser import Config, LevelSize
-from src.player import (BASE_SPEED, DIRECTIONS, Player, can_move,
-                        level_speed)
+from src.mover import DIRECTIONS, can_move
+from src.player import BASE_SPEED, Player, level_speed
 
 # Three cells in a row, open between them. Walls: 13 = top + bottom + left,
 # 5 = top + bottom, 7 = top + bottom + right.
@@ -122,3 +122,13 @@ def test_update_returns_the_cells_reached() -> None:
     player.turn("right")
     assert player.update(CORRIDOR, STEP / 2) == []
     assert player.update(CORRIDOR, 10.0) == [(1, 0), (2, 0)]
+
+
+def test_respawn_puts_pacman_back_still() -> None:
+    """After a respawn: on the start cell, still, keys forgotten."""
+    player = Player((0, 0))
+    player.turn("right")
+    player.update(CORRIDOR, STEP * 1.5)
+    player.respawn()
+    assert player.position == (0.0, 0.0)
+    assert (player.direction, player.wanted) == (None, None)
