@@ -1,5 +1,7 @@
+import math
 import pygame
 from .constants import FONT, LOGO, PACMAN, TILE, TOP, RIGHT, BOTTOM, LEFT, WALL_COLOR, WALL, MAZE_OFFSET, LOGO_COLOR
+from .constants import FACING_ANGLES, MOUTH_ANGLES, PACMAN_COLOR
 from src.game.scores import Scores
 
 
@@ -13,7 +15,12 @@ class GUI:
         self.player = pygame.image.load(PACMAN).convert_alpha()
         self.pacgum_sprite = self.make_circle_sprite(3, (255, 253, 208))
         self.super_sprite = self.make_circle_sprite(6, (255, 253, 208))
-        self.player_sprite = self.make_circle_sprite(TILE // 2 - 4, (255, 255, 0))
+        self.pacman_frames = {
+            (facing, frame): self.make_pacman_sprite(
+                TILE // 2 - 4, angle, mouth)
+            for facing, angle in FACING_ANGLES.items()
+            for frame, mouth in enumerate(MOUTH_ANGLES)
+        }
  
     def fill_circle(self, surface: pygame.Surface, color: tuple[int, int, int], cx: int, cy: int, radius: int) -> None:
 
@@ -27,6 +34,28 @@ class GUI:
         size = radius * 2 + 1
         sprite = pygame.Surface((size, size), pygame.SRCALPHA)
         self.fill_circle(sprite, color, radius, radius, radius)
+        return sprite
+
+    @staticmethod
+    def make_pacman_sprite(radius: int, facing: float,
+                           mouth: float) -> pygame.Surface:
+        """Draw Pac-Man pixel by pixel: a disc minus the mouth wedge.
+
+        Args:
+            radius: Radius in pixels.
+            facing: Direction of the mouth in degrees (0 = right, 90 = down).
+            mouth: Opening of the mouth in degrees (0 = closed).
+        """
+        size = radius * 2 + 1
+        sprite = pygame.Surface((size, size), pygame.SRCALPHA)
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                if dx * dx + dy * dy > radius * radius:
+                    continue
+                angle = math.degrees(math.atan2(dy, dx))
+                if abs((angle - facing + 180) % 360 - 180) < mouth / 2:
+                    continue  # inside the mouth
+                sprite.set_at((radius + dx, radius + dy), PACMAN_COLOR)
         return sprite
 
     def string_put(self, x: int, y: int, color: tuple[int, int, int], font: str, text: str) -> None:
@@ -151,10 +180,13 @@ class GUI:
         self.draw_cursor(80, 700, 20, (255, 253, 208))
         self.string_put(110, 703, (255, 253, 208), small_font, "Back")
 
-    def draw_player(self, pos: tuple[int, int]) -> None:
+    def draw_player(self, pos: tuple[float, float], facing: str,
+                    opening: float) -> None:
 
+        frame = round(opening * (len(MOUTH_ANGLES) - 1))
+        sprite = self.pacman_frames[(facing, frame)]
         ox, oy = MAZE_OFFSET
-        w_player, h_player = self.player_sprite.get_size()
-        px = ox + pos[0] * TILE + (TILE - w_player)
-        py = oy + pos[1] * TILE + (TILE - h_player)
-        self.screen.blit(self.player_sprite, (px - 3, py))
+        w_player, h_player = sprite.get_size()
+        px = ox + pos[0] * TILE + (TILE - w_player) // 2
+        py = oy + pos[1] * TILE + (TILE - h_player) // 2
+        self.screen.blit(sprite, (px, py))

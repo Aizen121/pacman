@@ -1,10 +1,17 @@
 from src.parser import Config
 from .scores import Scores
 from src.gui import GUI
-from .level import Level
+from .level import Level, RANDOM_SEED
+from src.player import level_speed
 import importlib
-import random
 import pygame
+
+# Arrow keys, and the WASD keys by physical position (scancodes), so the
+# same keys work as ZQSD on an AZERTY keyboard.
+ARROW_KEYS = {pygame.K_UP: "up", pygame.K_DOWN: "down",
+              pygame.K_LEFT: "left", pygame.K_RIGHT: "right"}
+WASD_SCANCODES = {pygame.KSCAN_W: "up", pygame.KSCAN_S: "down",
+                  pygame.KSCAN_A: "left", pygame.KSCAN_D: "right"}
 
 
 class Gameplay:
@@ -23,14 +30,13 @@ class Gameplay:
 
     def _load_level(self, level: int) -> None:
 
-        if level == 0:
-            self.level = Level(self.config.levels[0], self.config, self.config.seed)
-        else:
-            self.level = Level(self.config.levels[level], self.config, random.Random())
+        seed = self.config.seed if level == 0 else RANDOM_SEED
+        self.level = Level(self.config.levels[level], self.config, seed)
+        self.level.player.speed = level_speed(level)
         self.surface = self.gui.create_maze_surface(self.level.maze)
         self.level_timer = 0
 
-    def update(self, events: list[pygame.event.Event], dt: int) -> None:
+    def update(self, events: list[pygame.event.Event], dt: float) -> None:
 
         for event in events:
             if event.type == pygame.QUIT:
@@ -42,18 +48,16 @@ class Gameplay:
                     self.state_machine.game_active = False
                     self.state_machine.state = "main_menu"
                     return
-                # if event.key == pygame.K_w:
-                    # Player goes up
-                # if event.key == pygame.K_s:
-                    # Player goes down
-                # if event.key == pygame.K_a:
-                    # Player goes left
-                # if event.key == pygame.K_d:
-                    # Player goes right
-        # self.level.update()
+                direction = (ARROW_KEYS.get(event.key)
+                             or WASD_SCANCODES.get(event.scancode))
+                if direction is not None:
+                    self.level.player.turn(direction)
+        self.level.player.update(self.level.maze, dt)
 
     def draw(self) -> None:
 
         self.gui.draw_maze(self.surface)
         self.gui.draw_pacgums(self.level.available_pacgums, self.level.available_super_pacgums)
-        self.gui.draw_player(self.level.player.start_position)
+        player = self.level.player
+        self.gui.draw_player(player.position, player.facing,
+                             player.mouth_opening)
