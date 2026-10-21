@@ -1,6 +1,7 @@
 import math
 import pygame
-from .constants import FONT, LOGO, PACMAN, TILE, TOP, RIGHT, BOTTOM, LEFT, WALL_COLOR, WALL, MAZE_OFFSET, LOGO_COLOR
+from .constants import (FONT, LOGO, PACMAN, TILE, TOP, RIGHT, BOTTOM, LEFT,
+                        WALL_COLOR, WALL, MAZE_LEFT, MARGIN, LOGO_COLOR)
 from .constants import FACING_ANGLES, MOUTH_ANGLES, PACMAN_COLOR, TEXT_COLOR
 from src.game.scores import Scores
 
@@ -13,15 +14,39 @@ class GUI:
         self.program = program
         self.logo = pygame.image.load(LOGO).convert_alpha()
         self.player = pygame.image.load(PACMAN).convert_alpha()
-        self.pacgum_sprite = self.make_circle_sprite(3, (255, 253, 208))
-        self.super_sprite = self.make_circle_sprite(6, (255, 253, 208))
+        self.tile, self.wall = TILE, WALL
+        self.offset = (MAZE_LEFT, MARGIN)
+        self._make_sprites()
+        self.hud_font = pygame.font.Font(FONT, 20)
+
+    def set_layout(self, width: int, height: int) -> None:
+        """Fit a maze of width x height cells in the window.
+
+        Cells are at most TILE pixels wide: small mazes keep that size and
+        big ones shrink until they fit. The maze is centred in the area
+        right of the HUD, and the sprites are redrawn at the new size.
+        """
+        area_w = self.screen.get_width() - MAZE_LEFT - MARGIN
+        area_h = self.screen.get_height() - 2 * MARGIN
+        self.tile = min(TILE, area_w // width, area_h // height)
+        self.wall = max(1, WALL * self.tile // TILE)
+        self.offset = (MAZE_LEFT + (area_w - width * self.tile) // 2,
+                       MARGIN + (area_h - height * self.tile) // 2)
+        self._make_sprites()
+
+    def _make_sprites(self) -> None:
+        """Draw the pacgum and Pac-Man sprites for the current cell size."""
+        scale = self.tile / TILE
+        self.pacgum_sprite = self.make_circle_sprite(
+            max(1, round(3 * scale)), (255, 253, 208))
+        self.super_sprite = self.make_circle_sprite(
+            max(2, round(6 * scale)), (255, 253, 208))
+        radius = max(3, round((TILE // 2 - 4) * scale))
         self.pacman_frames = {
-            (facing, frame): self.make_pacman_sprite(
-                TILE // 2 - 4, angle, mouth)
+            (facing, frame): self.make_pacman_sprite(radius, angle, mouth)
             for facing, angle in FACING_ANGLES.items()
             for frame, mouth in enumerate(MOUTH_ANGLES)
         }
-        self.hud_font = pygame.font.Font(FONT, 20)
  
     def fill_circle(self, surface: pygame.Surface, color: tuple[int, int, int], cx: int, cy: int, radius: int) -> None:
 
@@ -141,56 +166,58 @@ class GUI:
 
     def create_maze_surface(self, maze: list[list[int]]) -> pygame.Surface:
 
-        surface = pygame.Surface((len(maze[0]) * TILE, len(maze) * TILE))
+        tile, wall = self.tile, self.wall
+        surface = pygame.Surface((len(maze[0]) * tile, len(maze) * tile))
 
         for y, row in enumerate(maze):
             for x, cell in enumerate(row):
-                px, py = x * TILE, y * TILE
+                px, py = x * tile, y * tile
                 if cell == 15:
-                    self.draw_rect(surface, LOGO_COLOR, px, py, TILE, TILE)
+                    self.draw_rect(surface, LOGO_COLOR, px, py, tile, tile)
                 if cell & TOP:
-                    self.draw_rect(surface, WALL_COLOR, px, py, TILE, WALL)
+                    self.draw_rect(surface, WALL_COLOR, px, py, tile, wall)
                 if cell & RIGHT:
-                    self.draw_rect(surface, WALL_COLOR, px + TILE - WALL, py, WALL, TILE)
+                    self.draw_rect(surface, WALL_COLOR, px + tile - wall, py,
+                                   wall, tile)
                 if cell & BOTTOM:
-                    self.draw_rect(surface, WALL_COLOR, px, py + TILE - WALL, TILE, WALL)
+                    self.draw_rect(surface, WALL_COLOR, px, py + tile - wall,
+                                   tile, wall)
                 if cell & LEFT:
-                    self.draw_rect(surface, WALL_COLOR, px, py, WALL, TILE)
+                    self.draw_rect(surface, WALL_COLOR, px, py, wall, tile)
         return surface
 
     def draw_pacgums(self, available_pg: set[tuple[int, int]], available_spg: set[tuple[int, int]]) -> None:
 
-        ox, oy = MAZE_OFFSET
+        ox, oy = self.offset
+        tile = self.tile
         w_pg, h_pg = self.pacgum_sprite.get_size()
         w_spg, h_spg = self.super_sprite.get_size()
 
         for x, y in available_pg:
-            px = ox + x * TILE + (TILE - w_pg) // 2
-            py = oy + y * TILE + (TILE - h_pg) // 2
+            px = ox + x * tile + (tile - w_pg) // 2
+            py = oy + y * tile + (tile - h_pg) // 2
             self.screen.blit(self.pacgum_sprite, (px, py))
         for x, y in available_spg:
-            px = ox + x * TILE + (TILE - w_spg) // 2
-            py = oy + y * TILE + (TILE - h_spg) // 2
+            px = ox + x * tile + (tile - w_spg) // 2
+            py = oy + y * tile + (tile - h_spg) // 2
             self.screen.blit(self.super_sprite, (px, py))
 
     def draw_maze(self, maze_surface: pygame.Surface) -> None:
     
-        small_font = pygame.font.Font(FONT, 20)
-
         self.screen.fill((0, 0, 0))
-        self.screen.blit(maze_surface, MAZE_OFFSET)
+        self.screen.blit(maze_surface, self.offset)
         self.draw_cursor(80, 700, 20, (255, 253, 208))
-        self.string_put(110, 703, (255, 253, 208), small_font, "Back")
+        self.string_put(110, 703, (255, 253, 208), self.hud_font, "Back")
 
     def draw_player(self, pos: tuple[float, float], facing: str,
                     opening: float) -> None:
 
         frame = round(opening * (len(MOUTH_ANGLES) - 1))
         sprite = self.pacman_frames[(facing, frame)]
-        ox, oy = MAZE_OFFSET
+        ox, oy = self.offset
         w_player, h_player = sprite.get_size()
-        px = ox + pos[0] * TILE + (TILE - w_player) // 2
-        py = oy + pos[1] * TILE + (TILE - h_player) // 2
+        px = ox + pos[0] * self.tile + (self.tile - w_player) // 2
+        py = oy + pos[1] * self.tile + (self.tile - h_player) // 2
         self.screen.blit(sprite, (px, py))
 
     def draw_hud(self, score: int, level: int) -> None:

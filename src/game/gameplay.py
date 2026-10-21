@@ -36,6 +36,7 @@ class Gameplay:
         seed = self.config.seed if level == 0 else RANDOM_SEED
         self.level = Level(self.config.levels[level], self.config, seed)
         self.level.player.speed = level_speed(level)
+        self.gui.set_layout(*self.level.dimensions)
         self.surface = self.gui.create_maze_surface(self.level.maze)
         self.level_timer = 0
 

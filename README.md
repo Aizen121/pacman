@@ -156,6 +156,7 @@ Why these limits:
 - Pac-Man is drawn by code as a disc minus a mouth wedge, pre-rendered in 12 frames (4 directions × 3 mouth openings). The mouth closes on each cell centre and opens wide halfway, so he chomps once per cell, at his own speed.
 - Pac-Man eats a pacgum or a super-pacgum when he arrives on its cell, and scores the points set in the configuration. A level is won once every pacgum and super-pacgum is eaten. The next level then starts with the same score. After the last level, the game goes back to the main menu until the victory screen exists.
 - The score and the level number are shown left of the maze.
+- Every maze fits the 1400×800 window. Cells are at most 50 pixels and shrink for big mazes (17 pixels for 42×42). The maze is centred right of the HUD, and its walls and sprites are redrawn at that size. Images are never scaled, because MiniLibX has no equivalent.
 - **TODO:** lives and level timer in the HUD (tasks 5.7, 5.8), ghost AI (tasks 6.x), victory and game-over screens (task 8.4), cheat mode (tasks 10.x), packaging (tasks 12.x).
 
 ## General Software Architecture
@@ -217,3 +218,4 @@ We use AI (Claude Code, by Anthropic) as a pair-programming tutor. It reads and 
 | 2026-10-20 | Player movement (5.5) | Proposed the grid movement model (cell + progress, turns at cell centres, remembered direction, immediate U-turn), the arrow and WASD key mapping by physical key, and 7 movement tests; Amine approved the code before it was written |
 | 2026-10-20 | Pac-Man sprite and speed (7.4, 5.5) | Rendered a preview of two pixel-drawn styles; after Amine's choice, proposed the animated sprite (12 pre-rendered frames, mouth synced with the movement), a speed that grows with the level, and 6 tests; Amine approved the code before it was written |
 | 2026-10-21 | Pacgums, score and levels (5.6, part of 5.8 and 7.5) | Proposed eating on arrival, the score with its HUD display, the level change once everything is eaten, and 8 tests; checked the result on a screenshot; Amine approved the code before it was written |
+| 2026-10-21 | Maze layout (7.3) | Proposed cell sizes computed per level so that every maze fits the window, with walls and sprites redrawn at that size, and 7 tests; showed screenshots of levels 1, 4 and 7; Amine approved the code before it was written |
