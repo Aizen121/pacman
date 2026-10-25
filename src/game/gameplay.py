@@ -49,12 +49,13 @@ class Gameplay:
         for event in events:
             if event.type == pygame.QUIT:
                 self.state_machine.running = False
+            if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    and self.gui.back_button_hit(event.pos)):
+                self._back_to_menu()
+                return
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.state_machine.running = False
-                if event.key == pygame.K_RETURN:
-                    self.state_machine.game_active = False
-                    self.state_machine.state = "main_menu"
+                    self._back_to_menu()
                     return
                 direction = (ARROW_KEYS.get(event.key)
                              or WASD_SCANCODES.get(event.scancode))
@@ -77,15 +78,18 @@ class Gameplay:
         if self.level_index + 1 < len(self.config.levels):
             self._load_level(self.level_index + 1)
         else:  # TODO: victory screen and name entry (tasks 8.4 and 9.2)
-            self.state_machine.game_active = False
-            self.state_machine.state = "main_menu"
+            self._back_to_menu()
+
+    def _back_to_menu(self) -> None:
+        """End this game session and show the main menu."""
+        self.state_machine.game_active = False
+        self.state_machine.state = "main_menu"
 
     def _lose_life(self) -> None:
         """Pac-Man was caught: one life less, then everyone restarts."""
         self.lives -= 1
         if self.lives <= 0:  # TODO: game-over screen and name entry (8.4)
-            self.state_machine.game_active = False
-            self.state_machine.state = "main_menu"
+            self._back_to_menu()
             return
         self.level.player.respawn()
         for ghost in self.level.ghosts:

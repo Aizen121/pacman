@@ -5,6 +5,7 @@ import pygame
 import pytest
 
 from src.constants import GHOST_COLORS, MAZE_LEFT, PUPIL_COLOR
+from src.game.scores import Scores
 from src.gui import GUI
 from src.parser import Config
 
@@ -92,3 +93,34 @@ def pupils_x(facing: float) -> float:
 def test_ghost_eyes_look_where_it_goes() -> None:
     """The pupils move to the right or to the left of the eyes."""
     assert pupils_x(0) > RADIUS > pupils_x(180)
+
+
+@pytest.mark.parametrize("size", [(1280, 720), (1440, 900), (1920, 1080)])
+def test_every_screen_draws_on_usual_screens(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        size: tuple[int, int]) -> None:
+    """Menus, scores, instructions and HUD draw on usual screen sizes."""
+    monkeypatch.chdir(ROOT)
+    pygame.init()
+    gui = GUI(pygame.display.set_mode(size), None)
+    gui.draw_main_menu(1)
+    gui.draw_highscores(Scores(str(tmp_path / "scores.json")))
+    gui.draw_instructions(Config())
+    gui.draw_hud(1234, 2, 9)
+    for rect in gui.menu_rects() + [gui.back_rect()]:
+        assert 0 <= rect.top and rect.bottom <= size[1]
+
+
+def test_menu_entries_are_clickable(gui: GUI) -> None:
+    """Each entry answers to a click on its centre, and only there."""
+    for index, rect in enumerate(gui.menu_rects()):
+        assert gui.menu_item_at(rect.center) == index
+    assert gui.menu_item_at((0, 0)) is None
+
+
+def test_back_button_is_clickable(gui: GUI) -> None:
+    """The BACK button, bottom left, answers to a click on it."""
+    rect = gui.back_rect()
+    assert gui.back_button_hit(rect.center)
+    assert not gui.back_button_hit((gui.width - 1, 0))
+    assert rect.right < gui.width // 3

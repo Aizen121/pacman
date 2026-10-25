@@ -105,3 +105,20 @@ def test_losing_the_last_life_returns_to_the_menu(gameplay: Gameplay,
     gameplay.update([], 0)
     assert app.state == "main_menu"
     assert app.game_active is False
+
+
+def test_escape_returns_to_the_menu(gameplay: Gameplay, app: FakeApp) -> None:
+    """ESC ends the game session and shows the main menu."""
+    escape = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE,
+                                scancode=pygame.KSCAN_ESCAPE)
+    gameplay.update([escape], 0)
+    assert (app.state, app.game_active) == ("main_menu", False)
+
+
+def test_back_button_returns_to_the_menu(gameplay: Gameplay,
+                                         app: FakeApp) -> None:
+    """A click on the BACK button also goes back to the main menu."""
+    click = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1,
+                               pos=gameplay.gui.back_rect().center)
+    gameplay.update([click], 0)
+    assert (app.state, app.game_active) == ("main_menu", False)

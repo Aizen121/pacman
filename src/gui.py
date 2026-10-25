@@ -1,24 +1,63 @@
+"""All the drawing: menus, maze, characters and HUD.
+
+Only MLX-like primitives are used: pixels (set_at), images (blit) and text
+(string_put). Positions are computed from the size of the window.
+"""
 import math
+
 import pygame
-from .constants import (FONT, LOGO, PACMAN, TILE, TOP, RIGHT, BOTTOM, LEFT,
-                        WALL_COLOR, WALL, MAZE_LEFT, MARGIN, LOGO_COLOR)
-from .constants import (FACING_ANGLES, MOUTH_ANGLES, PACMAN_COLOR, TEXT_COLOR,
-                        GHOST_COLORS, EYE_COLOR, PUPIL_COLOR)
+
+from src.constants import (BG_COLOR, BOTTOM, DIM_COLOR, EYE_COLOR,
+                           FACING_ANGLES, FONT, GHOST_COLORS, HIGHLIGHT_COLOR,
+                           LEFT, LOGO, LOGO_COLOR, MARGIN, MAZE_LEFT,
+                           MOUTH_ANGLES, PACGUM_COLOR, PACMAN_COLOR,
+                           PUPIL_COLOR, RIGHT, TEXT_COLOR, TILE, TOP, WALL,
+                           WALL_COLOR)
 from src.game.scores import Scores
+from src.parser import Config
+
+MENU_ITEMS = ("START", "HIGHSCORES", "INSTRUCTIONS", "EXIT")
+MENU_HINT = "UP/DOWN or MOUSE: choose - ENTER or CLICK: open - ESC: quit"
+CREDITS = ("This project has been created as part of the 42 curriculum "
+           "by rvaz-da-")
+BACK_LABEL = "< BACK (ESC)"
+RANKS = ("1ST", "2ND", "3RD", "4TH", "5TH", "6TH", "7TH", "8TH", "9TH",
+         "10TH")
 
 
 class GUI:
+    """Draws every screen of the game in the window."""
 
-    def __init__(self, screen: pygame.Surface, program: "Pacman") -> None:
+    def __init__(self, screen: pygame.Surface, program: object) -> None:
+        """Load the assets and size the fonts and icons to the window.
 
+        Args:
+            screen: The window surface.
+            program: The application (kept for the menus).
+        """
         self.screen = screen
         self.program = program
+        self.width, self.height = screen.get_size()
         self.logo = pygame.image.load(LOGO).convert_alpha()
-        self.player = pygame.image.load(PACMAN).convert_alpha()
+        self.title_font = pygame.font.Font(FONT, max(20, self.height // 16))
+        self.menu_font = pygame.font.Font(FONT, max(14, self.height // 26))
+        self.hud_font = pygame.font.Font(FONT, max(10, self.height // 40))
+        self.small_font = pygame.font.Font(FONT, max(8, self.height // 70))
+        icon = max(6, self.height // 50)  # radius of the menu and HUD icons
+        self.icon_pacman = self.make_pacman_sprite(icon, 0, 60)
+        self.icon_ghosts = [self.make_ghost_sprite(icon, color, 0)
+                            for color in GHOST_COLORS.values()]
+        self.icon_pacgum = self.make_circle_sprite(max(2, icon // 4),
+                                                   PACGUM_COLOR)
+        self.icon_super = self.make_circle_sprite(max(3, icon // 2),
+                                                  PACGUM_COLOR)
+        # the HUD panel on the left is at least wide enough for BACK
+        self.panel_width = max(MAZE_LEFT, self.back_rect().right + MARGIN)
         self.tile, self.wall = TILE, WALL
-        self.offset = (MAZE_LEFT, MARGIN)
+        self.offset = (self.panel_width, MARGIN)
         self._make_sprites()
-        self.hud_font = pygame.font.Font(FONT, 20)
+
+    # ------------------------------------------------------------ layout
 
     def set_layout(self, width: int, height: int) -> None:
         """Fit a maze of width x height cells in the window.
@@ -27,21 +66,60 @@ class GUI:
         big ones shrink until they fit. The maze is centred in the area
         right of the HUD, and the sprites are redrawn at the new size.
         """
-        area_w = self.screen.get_width() - MAZE_LEFT - MARGIN
-        area_h = self.screen.get_height() - 2 * MARGIN
+        area_w = self.width - self.panel_width - MARGIN
+        area_h = self.height - 2 * MARGIN
         self.tile = min(TILE, area_w // width, area_h // height)
         self.wall = max(1, WALL * self.tile // TILE)
-        self.offset = (MAZE_LEFT + (area_w - width * self.tile) // 2,
+        self.offset = (self.panel_width + (area_w - width * self.tile) // 2,
                        MARGIN + (area_h - height * self.tile) // 2)
         self._make_sprites()
 
+    def _menu_top(self) -> int:
+        """Return the y of the centre of the first main-menu entry."""
+        return (self._logo_top() + self.logo.get_height()
+                + self.height * 16 // 100)
+
+    def _logo_top(self) -> int:
+        """Return the y of the top of the logo on the main menu."""
+        return self.height * 5 // 100
+
+    def menu_rects(self) -> list[pygame.Rect]:
+        """Return the clickable area of each main-menu entry."""
+        step = self.menu_font.get_height() * 22 // 10
+        rects = []
+        for index, label in enumerate(MENU_ITEMS):
+            text_w, text_h = self.menu_font.size(label)
+            rect = pygame.Rect(0, 0, text_w + 4 * text_h, 2 * text_h)
+            rect.center = (self.width // 2, self._menu_top() + index * step)
+            rects.append(rect)
+        return rects
+
+    def back_rect(self) -> pygame.Rect:
+        """Return the area of the BACK button, bottom left."""
+        text_w, text_h = self.hud_font.size(BACK_LABEL)
+        return pygame.Rect(MARGIN, self.height - MARGIN - 2 * text_h,
+                           text_w + 2 * text_h, 2 * text_h)
+
+    def menu_item_at(self, pos: tuple[int, int]) -> int | None:
+        """Return the index of the main-menu entry under pos, or None."""
+        for index, rect in enumerate(self.menu_rects()):
+            if rect.collidepoint(pos):
+                return index
+        return None
+
+    def back_button_hit(self, pos: tuple[int, int]) -> bool:
+        """Tell whether pos is on the BACK button."""
+        return self.back_rect().collidepoint(pos)
+
+    # ------------------------------------------------------------ sprites
+
     def _make_sprites(self) -> None:
-        """Draw the pacgum and Pac-Man sprites for the current cell size."""
+        """Draw the pacgum, Pac-Man and ghost sprites for the cell size."""
         scale = self.tile / TILE
         self.pacgum_sprite = self.make_circle_sprite(
-            max(1, round(3 * scale)), (255, 253, 208))
+            max(1, round(3 * scale)), PACGUM_COLOR)
         self.super_sprite = self.make_circle_sprite(
-            max(2, round(6 * scale)), (255, 253, 208))
+            max(2, round(6 * scale)), PACGUM_COLOR)
         radius = max(3, round((TILE // 2 - 4) * scale))
         self.pacman_frames = {
             (facing, frame): self.make_pacman_sprite(radius, angle, mouth)
@@ -53,18 +131,20 @@ class GUI:
             for name, color in GHOST_COLORS.items()
             for facing, angle in FACING_ANGLES.items()
         }
- 
+
     @staticmethod
     def fill_circle(surface: pygame.Surface, color: tuple[int, int, int],
                     cx: int, cy: int, radius: int) -> None:
-
+        """Paint a disc on surface, pixel by pixel."""
         r2 = radius * radius
         for dy in range(-radius, radius + 1):
             for dx in range(-radius, radius + 1):
                 if dx * dx + dy * dy <= r2:
                     surface.set_at((cx + dx, cy + dy), color)
 
-    def make_circle_sprite(self, radius: int, color: tuple[int, int, int]) -> pygame.Surface:
+    def make_circle_sprite(self, radius: int,
+                           color: tuple[int, int, int]) -> pygame.Surface:
+        """Return a transparent sprite holding a disc."""
         size = radius * 2 + 1
         sprite = pygame.Surface((size, size), pygame.SRCALPHA)
         self.fill_circle(sprite, color, radius, radius, radius)
@@ -129,91 +209,164 @@ class GUI:
                             eye_y + look_y, max(1, round(radius * 0.15)))
         return sprite
 
+    # ------------------------------------------------------------ primitives
+
     def string_put(self, x: int, y: int, color: tuple[int, int, int],
                    font: pygame.font.Font, text: str) -> None:
-
+        """Draw text with its top-left corner at (x, y)."""
         string = font.render(text, False, color)
         self.screen.blit(string, (x, y))
 
-    def draw_cursor(self, x: int, y: int, size: int, color: tuple[int, int, int]) -> None:
+    def _text(self, font: pygame.font.Font, text: str,
+              color: tuple[int, int, int], x: int, y: int,
+              align: str = "left") -> None:
+        """Draw text with its top at y; x is its left, centre or right."""
+        if align == "center":
+            x -= font.size(text)[0] // 2
+        elif align == "right":
+            x -= font.size(text)[0]
+        self.string_put(x, y, color, font, text)
 
-        medial_point = size // 2
-
-        for row in range(size):
-            width = size * (medial_point - abs(row - medial_point)) // medial_point
-            for px in range(width):
-                self.screen.set_at((x + px, y + row), color)
-
-    def draw_main_menu(self, menu_index: int) -> None:
-
-        self.screen.fill((0, 0, 0))
-        self.screen.blit(self.logo, (300, 20))
-
-        font = pygame.font.Font(FONT, 30)
-        self.string_put(500, 300, (255, 253, 208), font, "1 START")
-        self.string_put(500, 370, (255, 253, 208), font, "2 HIGHSCORES")
-        self.string_put(500, 440, (255, 253, 208), font, "3 INSTRUCTIONS")
-        self.string_put(500, 510, (255, 253, 208), font, "4 EXIT")
-        self.string_put(10, 650, (255, 253, 208), font, "© This project has been created as part of the")
-        self.string_put(10, 700, (255, 253, 208), font, "42 curriculum by rvaz-da-")
-
-        if menu_index == 0:
-            self.draw_cursor(470, 300, 20, (255, 253, 208))
-        elif menu_index == 1:
-            self.draw_cursor(470, 370, 20, (255, 253, 208))
-        elif menu_index == 2:
-            self.draw_cursor(470, 440, 20, (255, 253, 208)) 
-        elif menu_index == 3:
-            self.draw_cursor(470, 510, 20, (255, 253, 208))
-
-    def draw_highscores(self, scores: Scores) -> None:
-
-        self.screen.fill((0, 0, 0))
-        self.screen.blit(self.logo, (300, 20))
-
-        title_font = pygame.font.Font(FONT, 50)
-        self.string_put(415, 280, (255, 253, 208), title_font, "HIGH SCORES")
-        
-        top_ten = scores.fetch_entries()
-        small_font = pygame.font.Font(FONT, 20)
-        self.draw_cursor(80, 700, 20, (255, 253, 208))
-        self.string_put(110, 703, (255, 253, 208), small_font, "Back")
-        if top_ten == []: 
-            self.string_put(520, 500, (255, 253, 208), small_font, "No scores yet :(")
-            return
-
-        rank_font = pygame.font.Font(FONT, 25)
-        positions = ["1ST", "2ND", "3RD", "4TH", "5TH", "6TH", "7TH", "8TH", "9TH", "10TH"]
-        sx, sy = 370, 350
-        for i, position in enumerate(positions[:len(top_ten)]):
-            sy += 35
-            self.string_put(sx, sy, (255, 253, 208), rank_font, position)
-            pos_w = rank_font.size("W"*4)[0]
-            sp_w = rank_font.size(" ")[0]
-            name_x = sx + pos_w + sp_w
-            self.string_put(name_x, sy, (255, 253, 208), rank_font, top_ten[i]["name"])
-            name_w = rank_font.size("W"*15)[0]
-            self.string_put(name_x + name_w + 15, sy, (255, 253, 208), rank_font, top_ten[i]["score"])
- 
-    def draw_instructions(self) -> None:
-
-        self.screen.fill((0, 0, 0))
-        self.screen.blit(self.logo, (300, 200))
-
-        title_font = pygame.font.Font(FONT, 50)
-        # self.string_put( , (255, 253, 208), title_font, "INSTRUCTIONS")
-
-    def draw_rect(self, surface: pygame.Surface, color: tuple[int, int, int], x: int, y: int, w: int, h: int) -> None:
-
+    def draw_rect(self, surface: pygame.Surface, color: tuple[int, int, int],
+                  x: int, y: int, w: int, h: int) -> None:
+        """Paint a filled rectangle on surface, pixel by pixel."""
         for py in range(y, y + h):
             for px in range(x, x + w):
-                surface.set_at((px, py), color) 
+                surface.set_at((px, py), color)
+
+    def _frame(self, rect: pygame.Rect, color: tuple[int, int, int],
+               thickness: int = 2) -> None:
+        """Paint the outline of rect on the screen."""
+        x, y, w, h = rect
+        sides = ((x, y, w, thickness), (x, y + h - thickness, w, thickness),
+                 (x, y, thickness, h), (x + w - thickness, y, thickness, h))
+        for side in sides:
+            self.draw_rect(self.screen, color, *side)
+
+    def _title(self, text: str) -> int:
+        """Draw a screen title at the top and return the y below it."""
+        top = self.height * 7 // 100
+        self._text(self.title_font, text, HIGHLIGHT_COLOR, self.width // 2,
+                   top, "center")
+        return top + self.title_font.get_height() * 2
+
+    def _draw_back_button(self) -> None:
+        """Draw the BACK button, lit when the mouse is over it."""
+        rect = self.back_rect()
+        hovered = rect.collidepoint(pygame.mouse.get_pos())
+        self._frame(rect, HIGHLIGHT_COLOR if hovered else WALL_COLOR)
+        text_h = self.hud_font.get_height()
+        self._text(self.hud_font, BACK_LABEL,
+                   HIGHLIGHT_COLOR if hovered else TEXT_COLOR,
+                   rect.centerx, rect.centery - text_h // 2, "center")
+
+    # ------------------------------------------------------------ menus
+
+    def draw_main_menu(self, menu_index: int) -> None:
+        """Draw the logo, the parade of characters and the menu entries."""
+        self.screen.fill(BG_COLOR)
+        self.screen.blit(self.logo, ((self.width - self.logo.get_width())
+                                     // 2, self._logo_top()))
+        self._draw_parade(self._logo_top() + self.logo.get_height()
+                          + self.height * 5 // 100)
+        for index, rect in enumerate(self.menu_rects()):
+            label = MENU_ITEMS[index]
+            selected = index == menu_index
+            text_w, text_h = self.menu_font.size(label)
+            self._text(self.menu_font, label,
+                       HIGHLIGHT_COLOR if selected else TEXT_COLOR,
+                       rect.centerx, rect.centery - text_h // 2, "center")
+            if selected:
+                icon = self.icon_pacman
+                self.screen.blit(icon, (rect.centerx - text_w // 2
+                                        - icon.get_width() * 2,
+                                        rect.centery - icon.get_height() // 2))
+        small_h = self.small_font.get_height()
+        self._text(self.small_font, MENU_HINT, DIM_COLOR, self.width // 2,
+                   self.height - MARGIN - small_h * 4, "center")
+        self._text(self.small_font, "© " + CREDITS, TEXT_COLOR,
+                   self.width // 2, self.height - MARGIN - small_h, "center")
+
+    def _draw_parade(self, centre_y: int) -> None:
+        """Draw the four ghosts chasing Pac-Man, who chases three pacgums."""
+        icons = [*self.icon_ghosts, self.icon_pacman]
+        step = self.icon_pacman.get_width() * 3 // 2
+        x = self.width // 2 - (len(icons) + 2) * step // 2
+        for icon in icons:
+            self.screen.blit(icon, (x, centre_y - icon.get_height() // 2))
+            x += step
+        for _ in range(3):
+            dot = self.icon_pacgum
+            self.screen.blit(dot, (x + step // 3, centre_y
+                                   - dot.get_height() // 2))
+            x += step * 2 // 3
+
+    def draw_highscores(self, scores: Scores) -> None:
+        """Draw the top 10, or a message when there is no score yet."""
+        self.screen.fill(BG_COLOR)
+        top = self._title("HIGH SCORES")
+        entries = scores.fetch_entries()
+        if not entries:
+            self._text(self.menu_font, "NO SCORES YET", TEXT_COLOR,
+                       self.width // 2, self.height // 2, "center")
+        row_h = self.hud_font.get_height() * 2
+        table_w = self.hud_font.size("10TH  " + "W" * 10 + "  " + "9" * 12)[0]
+        left = (self.width - table_w) // 2
+        name_x = left + self.hud_font.size("10TH  ")[0]
+        for rank, entry in zip(RANKS, entries):
+            self._text(self.hud_font, rank, HIGHLIGHT_COLOR, left, top)
+            self._text(self.hud_font, str(entry.get("name", "?"))[:10],
+                       TEXT_COLOR, name_x, top)
+            self._text(self.hud_font, str(entry.get("score", "")),
+                       TEXT_COLOR, left + table_w, top, "right")
+            top += row_h
+        self._draw_back_button()
+
+    def draw_instructions(self, config: Config) -> None:
+        """Draw the controls and the rules, with the points of the config."""
+        self.screen.fill(BG_COLOR)
+        top = self._title("INSTRUCTIONS")
+        rows: list[tuple[pygame.Surface | None, str, str]] = [
+            (None, "CONTROLS", ""),
+            (None, "ARROWS / WASD (ZQSD)", "move Pac-Man"),
+            (None, "ESC", "back to the menu"),
+            (None, "MOUSE", "choose and click in the menus"),
+            (None, "", ""),
+            (None, "RULES", ""),
+            (self.icon_pacgum, "PACGUM", f"{config.points_per_pacgum} pts"),
+            (self.icon_super, "SUPER-PACGUM",
+             f"{config.points_per_super_pacgum} pts"),
+            (self.icon_ghosts[0], "GHOST", "costs a life"),
+            (None, "", ""),
+            (None, "Eat every pacgum to clear the level.", ""),
+            (None, f"{len(config.levels)} levels, {config.lives} lives.", ""),
+        ]
+        row_h = self.hud_font.get_height() * 2
+        key_w = max(self.hud_font.size(key)[0] for _, key, text in rows
+                    if text)
+        text_w = max(self.hud_font.size(text)[0] for _, _, text in rows)
+        gap = self.hud_font.size("   ")[0]
+        left = (self.width - key_w - gap - text_w) // 2
+        middle = left + key_w + gap
+        for icon, key, text in rows:
+            heading = key in ("CONTROLS", "RULES")
+            if icon is not None:
+                self.screen.blit(icon, (left - icon.get_width() - gap // 2,
+                                        top + (self.hud_font.get_height()
+                                               - icon.get_height()) // 2))
+            self._text(self.hud_font, key,
+                       HIGHLIGHT_COLOR if heading else TEXT_COLOR, left, top)
+            self._text(self.hud_font, text, TEXT_COLOR, middle, top)
+            top += row_h
+        self._draw_back_button()
+
+    # ------------------------------------------------------------ game
 
     def create_maze_surface(self, maze: list[list[int]]) -> pygame.Surface:
-
+        """Draw the walls of maze once, on a surface blitted every frame."""
         tile, wall = self.tile, self.wall
         surface = pygame.Surface((len(maze[0]) * tile, len(maze) * tile))
-
+        surface.fill(BG_COLOR)
         for y, row in enumerate(maze):
             for x, cell in enumerate(row):
                 px, py = x * tile, y * tile
@@ -231,32 +384,23 @@ class GUI:
                     self.draw_rect(surface, WALL_COLOR, px, py, wall, tile)
         return surface
 
-    def draw_pacgums(self, available_pg: set[tuple[int, int]], available_spg: set[tuple[int, int]]) -> None:
-
-        ox, oy = self.offset
-        tile = self.tile
-        w_pg, h_pg = self.pacgum_sprite.get_size()
-        w_spg, h_spg = self.super_sprite.get_size()
-
+    def draw_pacgums(self, available_pg: set[tuple[int, int]],
+                     available_spg: set[tuple[int, int]]) -> None:
+        """Draw the pacgums and super-pacgums left in the level."""
         for x, y in available_pg:
-            px = ox + x * tile + (tile - w_pg) // 2
-            py = oy + y * tile + (tile - h_pg) // 2
-            self.screen.blit(self.pacgum_sprite, (px, py))
+            self._blit_on_cell(self.pacgum_sprite, (x, y))
         for x, y in available_spg:
-            px = ox + x * tile + (tile - w_spg) // 2
-            py = oy + y * tile + (tile - h_spg) // 2
-            self.screen.blit(self.super_sprite, (px, py))
+            self._blit_on_cell(self.super_sprite, (x, y))
 
     def draw_maze(self, maze_surface: pygame.Surface) -> None:
-    
-        self.screen.fill((0, 0, 0))
+        """Clear the screen, then draw the maze and the BACK button."""
+        self.screen.fill(BG_COLOR)
         self.screen.blit(maze_surface, self.offset)
-        self.draw_cursor(80, 700, 20, (255, 253, 208))
-        self.string_put(110, 703, (255, 253, 208), self.hud_font, "Back")
+        self._draw_back_button()
 
     def draw_player(self, pos: tuple[float, float], facing: str,
                     opening: float) -> None:
-
+        """Draw Pac-Man, his mouth open by opening (0 to 1)."""
         frame = round(opening * (len(MOUTH_ANGLES) - 1))
         self._blit_on_cell(self.pacman_frames[(facing, frame)], pos)
 
@@ -275,10 +419,18 @@ class GUI:
         self.screen.blit(sprite, (px, py))
 
     def draw_hud(self, score: int, level: int, lives: int) -> None:
-        """Draw the score, the level number and the lives left of the maze."""
-        self.string_put(30, 60, TEXT_COLOR, self.hud_font, "SCORE")
-        self.string_put(30, 95, TEXT_COLOR, self.hud_font, str(score))
-        self.string_put(30, 160, TEXT_COLOR, self.hud_font, "LEVEL")
-        self.string_put(30, 195, TEXT_COLOR, self.hud_font, str(level))
-        self.string_put(30, 260, TEXT_COLOR, self.hud_font, "LIVES")
-        self.string_put(30, 295, TEXT_COLOR, self.hud_font, str(lives))
+        """Draw the score, the level and the lives left of the maze."""
+        y = MARGIN * 2
+        for label, value in (("SCORE", str(score)), ("LEVEL", str(level))):
+            self._text(self.hud_font, label, HIGHLIGHT_COLOR, MARGIN, y)
+            y += self.hud_font.get_height() * 3 // 2
+            self._text(self.menu_font, value, TEXT_COLOR, MARGIN, y)
+            y += self.menu_font.get_height() * 2
+        self._text(self.hud_font, "LIVES", HIGHLIGHT_COLOR, MARGIN, y)
+        y += self.hud_font.get_height() * 3 // 2
+        icon = self.icon_pacman
+        step = icon.get_width() * 3 // 2
+        per_row = max(1, (self.panel_width - 2 * MARGIN) // step)
+        for life in range(lives):
+            self.screen.blit(icon, (MARGIN + life % per_row * step,
+                                    y + life // per_row * step))

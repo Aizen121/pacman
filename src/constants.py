@@ -2,17 +2,21 @@
 
 FONT = "assets/Press_Start_2P/PressStart2P-Regular.ttf"
 LOGO = "assets/pacman_logo.png"
-PACMAN = "assets/pacman.png"
+FULLSCREEN = True  # False: a window of 90 % of the screen instead
 # DEFAULT = [] (default config)
 TILE = 50  # largest cell size in pixels; big mazes get smaller cells
 TOP, RIGHT, BOTTOM, LEFT = 1, 2, 4, 8
-WALL_COLOR = (255, 253, 208)
+WALL_COLOR = (45, 75, 255)  # arcade neon blue
 WALL = 3  # wall thickness for the largest cells
 MAZE_LEFT = 300  # the HUD uses the screen left of this x
 MARGIN = 25  # free space around the maze, in pixels
-LOGO_COLOR = (25, 25, 166)
+LOGO_COLOR = (255, 253, 208)  # the "42" cells
 PACMAN_COLOR = (255, 255, 0)
 TEXT_COLOR = (255, 253, 208)
+BG_COLOR = (8, 8, 28)  # night blue
+PACGUM_COLOR = (255, 184, 174)  # arcade peach
+HIGHLIGHT_COLOR = (255, 200, 40)  # amber, like the logo
+DIM_COLOR = (130, 130, 170)  # hints
 # Mouth openings of the Pac-Man frames, in degrees: closed, half, wide open
 MOUTH_ANGLES = (0, 45, 90)
 # Direction of the mouth, in degrees (the screen y axis points down)

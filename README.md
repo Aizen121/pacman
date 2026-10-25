@@ -37,7 +37,7 @@ The program takes exactly one argument, a JSON configuration file:
 uv run python pac-man.py config.json
 ```
 
-Run it from the repository root, because asset paths are relative to it.
+Run it from the repository root, because asset paths are relative to it. The game opens full screen, at the size of your screen. To play in a window instead, set `FULLSCREEN = False` in `src/constants.py`.
 
 ### Tests
 
@@ -62,9 +62,9 @@ uv run pytest -v tests/test_parser.py::test_missing_file   # a single test
 
 | Context | Keys |
 |---|---|
-| Menus | `↑` / `↓` to move, `Enter` to select |
-| Anywhere | `Esc` quits the game |
-| In game | Arrow keys or WASD to move (the same physical keys are ZQSD on an AZERTY keyboard). `Enter` returns to the main menu until the pause menu exists (**TODO**, task 8.3) |
+| Main menu | `↑` / `↓` or the mouse to choose, `Enter` or a click to open, `Esc` to quit |
+| High scores, instructions | `Esc`, `Enter` or a click on the BACK button to return to the main menu |
+| In game | Arrow keys or WASD to move (the same physical keys are ZQSD on an AZERTY keyboard). `Esc` or a click on BACK returns to the main menu (pause menu: **TODO**, task 8.3) |
 
 ## Configuration
 
@@ -158,7 +158,8 @@ Why these limits:
 - The score, the level number and the lives are shown left of the maze.
 - Ghosts use the same grid movement as Pac-Man, through a shared `Mover` class. At each crossing, a ghost takes the way whose next cell is closest to its target. Distances are counted along the corridors with a breadth-first search, so ghosts go around walls instead of bumping into them. A ghost never turns back on its own, except in a dead end. Blinky (red) targets Pac-Man's cell, at 90 % of his speed.
 - Touching a ghost costs a life: Pac-Man respawns in the middle and the ghost in its corner. With no life left, the game goes back to the main menu until the game-over screen exists.
-- Every maze fits the 1400×800 window. Cells are at most 50 pixels and shrink for big mazes (17 pixels for 42×42). The maze is centred right of the HUD, and its walls and sprites are redrawn at that size. Images are never scaled, because MiniLibX has no equivalent.
+- The visual identity is "arcade neon": night-blue background, neon-blue walls, cream "42" cells, peach pacgums and amber titles. The palette is defined in `src/constants.py`. Every position, font and icon is computed from the size of the screen, and the main menu, the BACK buttons and the menus react to the mouse.
+- Every maze fits the window. Cells are at most 50 pixels and shrink for big mazes (17 pixels for 42×42). The maze is centred right of the HUD, and its walls and sprites are redrawn at that size. Images are never scaled, because MiniLibX has no equivalent.
 - **TODO:** level timer (task 5.8), Pinky, Inky and Clyde and the edible mode (tasks 6.x), victory and game-over screens (task 8.4), cheat mode (tasks 10.x), packaging (tasks 12.x).
 
 ## General Software Architecture
@@ -225,3 +226,4 @@ We use AI (Claude Code, by Anthropic) as a pair-programming tutor. It reads and 
 | 2026-10-21 | Pacgums, score and levels (5.6, part of 5.8 and 7.5) | Proposed eating on arrival, the score with its HUD display, the level change once everything is eaten, and 8 tests; checked the result on a screenshot; Amine approved the code before it was written |
 | 2026-10-21 | Maze layout (7.3) | Proposed cell sizes computed per level so that every maze fits the window, with walls and sprites redrawn at that size, and 7 tests; showed screenshots of levels 1, 4 and 7; Amine approved the code before it was written |
 | 2026-10-21 | First ghost, Blinky (6.1 to 6.3, 5.7) | Explained the ghost algorithms (target cell, BFS distance, no U-turn, the four personalities, modes); after Amine's choices, proposed the shared `Mover` class, the BFS, Blinky, collisions and lives, the pixel-drawn ghost sprite, and 17 tests; Amine approved the code before it was written |
+| 2026-10-25 | Interface (8.1, 8.2, 7.5) | After Amine's requests, proposed the full-screen window, the "arcade neon" visual identity, layouts computed from the screen size, a real BACK button, mouse support and the filled instructions screen, with 7 tests; showed before/after screenshots at three screen sizes; Amine approved the code before it was written |
