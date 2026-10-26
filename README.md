@@ -135,7 +135,10 @@ Why these limits:
 
 - Highscores are stored as JSON in the file named by `highscore_filename` (`data/leaderboard.json` in the provided config), with the shape `{"leaderboard": [{"name": "...", "score": ...}]}`.
 - The top 10 is shown from the main menu (*HIGHSCORES*).
-- Rules required by the subject, still being implemented: a player name has at most 10 characters (letters, digits and spaces), a score is a non-negative integer, the file is loaded at startup and saved at the end of a game, and a missing or corrupted file must never crash the game.
+- A player name has 1 to 10 characters (letters, digits and spaces), and a score is a non-negative integer. A score that breaks these rules is refused.
+- The top 10 is loaded once at startup and saved each time a score is added, that is at the end of a game.
+- A missing file means no score yet; it is created, with its folder, at the first save.
+- An unreadable or broken file, or an entry that breaks the rules, is reported on stderr and skipped: the game always starts, and the next save rewrites the file.
 - **TODO (task 9.2):** name entry at the end of a game, and an explanation of why this storage was chosen.
 
 ## Maze Generation
@@ -231,3 +234,4 @@ We use AI (Claude Code, by Anthropic) as a pair-programming tutor. It reads and 
 | 2026-10-26 | Edible ghosts, step 1 (6.4, 6.5, 5.6) | Proposed the rules (edible for 6 s at half speed after a super-pacgum, fleeing with the same BFS but the farthest way, eaten ghosts back in their corner after 5 s, `points_per_ghost` for each) and their code, with 7 tests; Amine approved the code before it was written |
 | 2026-10-26 | Edible ghosts, step 2 (7.4) | Proposed the blue ghost sprites that flash white in their last 2 seconds (same pixel-drawn sprite, other colors), hiding eaten ghosts, the instructions line and 5 tests; checked the result on screenshots; Amine approved the code before it was written |
 | 2026-10-26 | Eaten ghosts go home (6.5, 7.4) | After Amine asked for the arcade behaviour, measured the trip back to the corners per maze size and proposed the eyes going home at twice the speed, waiting there until 5 s have passed since the ghost was eaten, the eyes-only sprite and 4 tests (plus 2 updated); Amine approved the code before it was written |
+| 2026-10-26 | Highscores fix (9.1, part of 9.2, 9.3; Raf's file, fixed on Amine's decision) | Found by running the code that a missing leaderboard file made the second launch fail, that the name regex matched nothing and that `add_entry` would crash; proposed the rewrite of `Scores` (rules checked on load and add, warnings instead of exits), integer scores in the provided file and 9 tests (16 cases); Amine approved the code before it was written |
