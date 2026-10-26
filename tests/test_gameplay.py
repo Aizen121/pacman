@@ -79,12 +79,14 @@ def test_last_level_returns_to_the_menu(gameplay: Gameplay,
     assert app.game_active is False
 
 
-def test_blinky_starts_in_the_top_right_corner(gameplay: Gameplay) -> None:
-    """One ghost for now, a bit slower than Pac-Man."""
+def test_ghosts_start_in_their_corners(gameplay: Gameplay) -> None:
+    """Blinky top-right, Pinky top-left, both a bit slower than Pac-Man."""
     width, _ = gameplay.level.dimensions
-    [ghost] = gameplay.level.ghosts
-    assert (ghost.name, ghost.cell) == ("blinky", (width - 1, 0))
-    assert ghost.speed == pytest.approx(0.9 * gameplay.level.player.speed)
+    blinky, pinky = gameplay.level.ghosts
+    assert (blinky.name, blinky.cell) == ("blinky", (width - 1, 0))
+    assert (pinky.name, pinky.cell) == ("pinky", (0, 0))
+    for ghost in (blinky, pinky):
+        assert ghost.speed == pytest.approx(0.9 * gameplay.level.player.speed)
 
 
 def test_a_ghost_catching_pacman_costs_a_life(gameplay: Gameplay) -> None:
@@ -95,6 +97,61 @@ def test_a_ghost_catching_pacman_costs_a_life(gameplay: Gameplay) -> None:
     assert gameplay.lives == 2
     assert player.cell == player.start_position
     assert ghost.cell == ghost.start_position
+
+
+def test_a_super_pacgum_makes_the_ghosts_edible(gameplay: Gameplay) -> None:
+    """Reaching a super-pacgum adds 50 points and frightens every ghost."""
+    level = gameplay.level
+    start = level.player_start
+    direction = next(d for d in DIRECTIONS if can_move(level.maze, start, d))
+    dx, dy, _ = DIRECTIONS[direction]
+    target = (start[0] + dx, start[1] + dy)
+    level.available_pacgums.discard(target)
+    level.available_super_pacgums.add(target)
+    level.player.turn(direction)
+    gameplay.update([], 1 / level.player.speed)  # exactly one cell
+    assert target not in level.available_super_pacgums
+    assert gameplay.score == 50
+    assert all(ghost.edible for ghost in level.ghosts)
+
+
+def test_touching_an_edible_ghost_eats_it(gameplay: Gameplay) -> None:
+    """An edible ghost gives its points and leaves; no life is lost."""
+    player, ghost = gameplay.level.player, gameplay.level.ghosts[0]
+    player.cell = ghost.cell = (1, 1)
+    ghost.frighten()
+    gameplay.update([], 0)
+    assert ghost.eaten
+    assert gameplay.score == 200
+    assert gameplay.lives == 3
+
+
+def test_an_eaten_ghost_is_harmless(gameplay: Gameplay) -> None:
+    """While it waits to come back, a ghost costs no life."""
+    player, ghost = gameplay.level.player, gameplay.level.ghosts[0]
+    player.cell = ghost.cell = (1, 1)
+    ghost.get_eaten()
+    gameplay.update([], 0)
+    assert gameplay.lives == 3
+
+
+def test_eaten_ghosts_are_eyes(gameplay: Gameplay,
+                               monkeypatch: pytest.MonkeyPatch) -> None:
+    """An eaten ghost is drawn as eyes; an edible one is drawn too."""
+    blinky, pinky = gameplay.level.ghosts
+    blinky.fright_time = 1.9  # edible, flashing
+    pinky.get_eaten()
+    drawn: list[tuple[str, bool]] = []
+    real_draw = gameplay.gui.draw_ghost
+
+    def spy(pos: tuple[float, float], name: str, facing: str,
+            fright_time: float = 0.0, eaten: bool = False) -> None:
+        """Remember which ghost is drawn, then really draw it."""
+        drawn.append((name, eaten))
+        real_draw(pos, name, facing, fright_time, eaten)
+    monkeypatch.setattr(gameplay.gui, "draw_ghost", spy)
+    gameplay.draw()
+    assert drawn == [("blinky", False), ("pinky", True)]
 
 
 def test_losing_the_last_life_returns_to_the_menu(gameplay: Gameplay,

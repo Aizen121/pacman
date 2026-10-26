@@ -26,3 +26,7 @@ GHOST_COLORS = {"blinky": (255, 0, 0), "pinky": (255, 184, 255),
                 "inky": (0, 255, 255), "clyde": (255, 184, 82)}
 EYE_COLOR = (255, 255, 255)
 PUPIL_COLOR = (33, 33, 222)
+# Edible ghosts are blue, and flash white in their last seconds
+FRIGHT_COLOR = (33, 33, 255)
+FLASH_COLOR = (255, 255, 255)
+FLASH_TIME = 2.0  # seconds of flashing before a ghost is dangerous again

@@ -1,11 +1,15 @@
 """The ghosts: at each crossing, they take the shortest way to a target."""
-from src.mover import OPPOSITE, Mover, can_move, neighbour
+from src.mover import DIRECTIONS, OPPOSITE, Mover, can_move, neighbour
 from src.pathfinding import distances_from
 from src.player import BASE_SPEED, Player
 
 GHOST_SPEED_RATIO = 0.9  # ghosts move at 90 % of Pac-Man's speed
 # Order used to break ties between equally good ways, as in the arcade game.
 PRIORITY = ("up", "left", "down", "right")
+FRIGHT_TIME = 6.0  # seconds a super-pacgum makes the ghosts edible
+FRIGHT_SPEED_RATIO = 0.5  # edible ghosts move at half their speed
+RESPAWN_DELAY = 5.0  # an eaten ghost is out of the game at least this long
+EYES_SPEED_RATIO = 2.0  # the eyes of an eaten ghost go home twice as fast
 
 
 class Ghost(Mover):
@@ -14,6 +18,9 @@ class Ghost(Mover):
     At each crossing it takes the way whose next cell is the closest to the
     target, distances being counted along the corridors (breadth-first
     search). It never turns back on its own, except in a dead end.
+    After a super-pacgum it is edible for a while: it runs away instead,
+    at half speed. Once eaten, only its eyes are left: they go back to its
+    corner, where the ghost revives.
     """
 
     def __init__(self, name: str, corner: tuple[int, int],
@@ -28,13 +35,73 @@ class Ghost(Mover):
         super().__init__(corner, speed)
         self.name = name
         self.target = corner
+        self.fright_time = 0.0  # seconds left as an edible ghost
+        self.eaten = False  # eaten: only its eyes are left, going home
+        self.respawn_time = 0.0  # seconds left before an eaten one revives
 
-    def chase(self, player: Player) -> None:
-        """Aim at the cell of Pac-Man: Blinky's way of chasing."""
+    @property
+    def edible(self) -> bool:
+        """Tell whether Pac-Man can eat the ghost (after a super-pacgum)."""
+        return self.fright_time > 0
+
+    @property
+    def home(self) -> bool:
+        """Tell whether the ghost stands on its corner, at the cell centre."""
+        return self.cell == self.start_position and self.progress == 0
+
+    def chase(self, player: Player, maze: list[list[int]]) -> None:
+        """Aim at the cell of Pac-Man: Blinky's way of chasing.
+
+        The other ghosts override this method; some of them need the maze.
+        """
         self.target = player.cell
+
+    def flee(self, player: Player) -> None:
+        """Aim at Pac-Man, to run away from it (see choose_direction)."""
+        self.target = player.cell
+
+    def frighten(self) -> None:
+        """Become edible for FRIGHT_TIME seconds, unless already eaten."""
+        if not self.eaten:
+            self.fright_time = FRIGHT_TIME
+
+    def get_eaten(self) -> None:
+        """Turn into eyes that go back to the corner, out of the game."""
+        self.fright_time = 0.0
+        self.eaten = True
+        self.respawn_time = RESPAWN_DELAY
+        self.target = self.start_position
+
+    def respawn(self) -> None:
+        """Go back to its corner, dangerous again."""
+        super().respawn()
+        self.fright_time = self.respawn_time = 0.0
+        self.eaten = False
+
+    def update(self, maze: list[list[int]],
+               dt: float) -> list[tuple[int, int]]:
+        """Count down the fright or the time away, then move.
+
+        An edible ghost moves at half speed. The eyes of an eaten one go
+        back to its corner at EYES_SPEED_RATIO times its speed and wait
+        there: it revives once RESPAWN_DELAY seconds have passed since it
+        was eaten.
+        """
+        if self.eaten:
+            self.respawn_time = max(0.0, self.respawn_time - dt)
+            if self.respawn_time == 0 and self.home:
+                self.eaten = False  # revives in its corner
+                return []
+            return super().update(maze, dt * EYES_SPEED_RATIO)
+        self.fright_time = max(0.0, self.fright_time - dt)
+        if self.edible:
+            dt *= FRIGHT_SPEED_RATIO  # half the time: half the way
+        return super().update(maze, dt)
 
     def choose_direction(self, maze: list[list[int]]) -> str | None:
         """Take the open way whose next cell is the closest to the target."""
+        if self.eaten and self.home:
+            return None  # the eyes wait in the corner
         back = OPPOSITE[self.direction] if self.direction else None
         ways = [way for way in PRIORITY
                 if way != back and can_move(maze, self.cell, way)]
@@ -44,5 +111,30 @@ class Ghost(Mover):
             return None
         distances = distances_from(maze, self.target)
         too_far = len(maze) * len(maze[0])  # longer than any real path
-        return min(ways, key=lambda way: distances.get(
-            neighbour(self.cell, way), too_far))
+
+        def distance(way: str) -> int:
+            """Return the steps from the cell after way to the target."""
+            return distances.get(neighbour(self.cell, way), too_far)
+        if self.edible:  # run away: the way farthest from Pac-Man
+            return max(ways, key=distance)
+        return min(ways, key=distance)
+
+
+PINKY_LEAD = 4  # Pinky aims this many cells ahead of Pac-Man
+
+
+class Pinky(Ghost):
+    """Pinky ambushes: it aims ahead of Pac-Man to cut it off."""
+
+    def chase(self, player: Player, maze: list[list[int]]) -> None:
+        """Aim PINKY_LEAD cells ahead of Pac-Man, as the crow flies.
+
+        Walls are ignored, as in the arcade game, so the target is often
+        on the other side of a wall and Pinky takes another way than
+        Blinky. The target is kept inside the grid; if it falls in the
+        closed "42" cells, Pinky aims at Pac-Man instead.
+        """
+        dx, dy, _ = DIRECTIONS[player.facing]
+        x = min(max(player.cell[0] + PINKY_LEAD * dx, 0), len(maze[0]) - 1)
+        y = min(max(player.cell[1] + PINKY_LEAD * dy, 0), len(maze) - 1)
+        self.target = (x, y) if maze[y][x] != 15 else player.cell

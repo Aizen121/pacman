@@ -4,7 +4,7 @@ from pathlib import Path
 import pygame
 import pytest
 
-from src.constants import GHOST_COLORS, MAZE_LEFT, PUPIL_COLOR
+from src.constants import EYE_COLOR, GHOST_COLORS, MAZE_LEFT, PUPIL_COLOR
 from src.game.scores import Scores
 from src.gui import GUI
 from src.parser import Config
@@ -93,6 +93,26 @@ def pupils_x(facing: float) -> float:
 def test_ghost_eyes_look_where_it_goes() -> None:
     """The pupils move to the right or to the left of the eyes."""
     assert pupils_x(0) > RADIUS > pupils_x(180)
+
+
+@pytest.mark.parametrize("fright_time, look", [
+    (0.0, "pinky"), (5.0, "frightened"), (1.9, "flashing"),
+    (1.8, "frightened")])
+def test_edible_ghosts_are_blue_then_flash(fright_time: float,
+                                           look: str) -> None:
+    """Blue while edible, flashing white in the last FLASH_TIME seconds."""
+    assert GUI.ghost_look("pinky", fright_time) == look
+
+
+def test_eaten_ghosts_are_only_eyes() -> None:
+    """An eaten ghost shows its eyes, without a body."""
+    assert GUI.ghost_look("pinky", 3.0, eaten=True) == "eyes"
+    sprite = GUI.make_eyes_sprite(RADIUS, 0)
+    assert sprite.get_at((RADIUS, RADIUS)).a == 0  # no body
+    colors = {tuple(sprite.get_at((x, y)))[:3]
+              for x in range(sprite.get_width())
+              for y in range(sprite.get_height())}
+    assert EYE_COLOR in colors and PUPIL_COLOR in colors
 
 
 @pytest.mark.parametrize("size", [(1280, 720), (1440, 900), (1920, 1080)])

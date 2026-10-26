@@ -8,7 +8,8 @@ import math
 import pygame
 
 from src.constants import (BG_COLOR, BOTTOM, DIM_COLOR, EYE_COLOR,
-                           FACING_ANGLES, FONT, GHOST_COLORS, HIGHLIGHT_COLOR,
+                           FACING_ANGLES, FLASH_COLOR, FLASH_TIME, FONT,
+                           FRIGHT_COLOR, GHOST_COLORS, HIGHLIGHT_COLOR,
                            LEFT, LOGO, LOGO_COLOR, MARGIN, MAZE_LEFT,
                            MOUTH_ANGLES, PACGUM_COLOR, PACMAN_COLOR,
                            PUPIL_COLOR, RIGHT, TEXT_COLOR, TILE, TOP, WALL,
@@ -47,6 +48,7 @@ class GUI:
         self.icon_pacman = self.make_pacman_sprite(icon, 0, 60)
         self.icon_ghosts = [self.make_ghost_sprite(icon, color, 0)
                             for color in GHOST_COLORS.values()]
+        self.icon_frightened = self.make_ghost_sprite(icon, FRIGHT_COLOR, 0)
         self.icon_pacgum = self.make_circle_sprite(max(2, icon // 4),
                                                    PACGUM_COLOR)
         self.icon_super = self.make_circle_sprite(max(3, icon // 2),
@@ -126,11 +128,16 @@ class GUI:
             for facing, angle in FACING_ANGLES.items()
             for frame, mouth in enumerate(MOUTH_ANGLES)
         }
+        ghost_colors = {**GHOST_COLORS, "frightened": FRIGHT_COLOR,
+                        "flashing": FLASH_COLOR}
         self.ghost_frames = {
             (name, facing): self.make_ghost_sprite(radius, color, angle)
-            for name, color in GHOST_COLORS.items()
+            for name, color in ghost_colors.items()
             for facing, angle in FACING_ANGLES.items()
         }
+        for facing, angle in FACING_ANGLES.items():
+            self.ghost_frames[("eyes", facing)] = self.make_eyes_sprite(
+                radius, angle)
 
     @staticmethod
     def fill_circle(surface: pygame.Surface, color: tuple[int, int, int],
@@ -198,6 +205,21 @@ class GUI:
                               <= (radius - dy) * wave / 2)
                 if inside:
                     sprite.set_at((radius + dx, radius + dy), color)
+        GUI.draw_eyes(sprite, radius, facing)
+        return sprite
+
+    @staticmethod
+    def make_eyes_sprite(radius: int, facing: float) -> pygame.Surface:
+        """Draw only the eyes of a ghost: what is left once it is eaten."""
+        size = radius * 2 + 1
+        sprite = pygame.Surface((size, size), pygame.SRCALPHA)
+        GUI.draw_eyes(sprite, radius, facing)
+        return sprite
+
+    @staticmethod
+    def draw_eyes(sprite: pygame.Surface, radius: int,
+                  facing: float) -> None:
+        """Paint the two eyes of a ghost, looking towards facing (degrees)."""
         look_x = round(math.cos(math.radians(facing)) * radius / 8)
         look_y = round(math.sin(math.radians(facing)) * radius / 8)
         eye_y = radius - round(radius * 0.2)
@@ -207,7 +229,6 @@ class GUI:
                             max(1, round(radius * 0.3)))
             GUI.fill_circle(sprite, PUPIL_COLOR, eye_x + look_x,
                             eye_y + look_y, max(1, round(radius * 0.15)))
-        return sprite
 
     # ------------------------------------------------------------ primitives
 
@@ -337,6 +358,8 @@ class GUI:
             (self.icon_super, "SUPER-PACGUM",
              f"{config.points_per_super_pacgum} pts"),
             (self.icon_ghosts[0], "GHOST", "costs a life"),
+            (self.icon_frightened, "BLUE GHOST",
+             f"{config.points_per_ghost} pts"),
             (None, "", ""),
             (None, "Eat every pacgum to clear the level.", ""),
             (None, f"{len(config.levels)} levels, {config.lives} lives.", ""),
@@ -404,10 +427,27 @@ class GUI:
         frame = round(opening * (len(MOUTH_ANGLES) - 1))
         self._blit_on_cell(self.pacman_frames[(facing, frame)], pos)
 
-    def draw_ghost(self, pos: tuple[float, float], name: str,
-                   facing: str) -> None:
+    @staticmethod
+    def ghost_look(name: str, fright_time: float,
+                   eaten: bool = False) -> str:
+        """Return which frames to draw: own, blue, flashing or eyes only.
+
+        An edible ghost is blue, and flashes white 4 times per second
+        during its last FLASH_TIME seconds. An eaten one is only eyes.
+        """
+        if eaten:
+            return "eyes"
+        if fright_time <= 0:
+            return name
+        if fright_time < FLASH_TIME and int(fright_time * 8) % 2 == 1:
+            return "flashing"
+        return "frightened"
+
+    def draw_ghost(self, pos: tuple[float, float], name: str, facing: str,
+                   fright_time: float = 0.0, eaten: bool = False) -> None:
         """Draw a ghost, its eyes looking where it goes."""
-        self._blit_on_cell(self.ghost_frames[(name, facing)], pos)
+        look = self.ghost_look(name, fright_time, eaten)
+        self._blit_on_cell(self.ghost_frames[(look, facing)], pos)
 
     def _blit_on_cell(self, sprite: pygame.Surface,
                       pos: tuple[float, float]) -> None:

@@ -63,13 +63,23 @@ class Gameplay:
                     self.level.player.turn(direction)
         player = self.level.player
         for cell in player.update(self.level.maze, dt):
+            if cell in self.level.available_super_pacgums:
+                for ghost in self.level.ghosts:
+                    ghost.frighten()
             self.score += self.level.eat(cell)
         for ghost in self.level.ghosts:
-            ghost.chase(player)
+            if ghost.edible:
+                ghost.flee(player)
+            elif not ghost.eaten:
+                ghost.chase(player, self.level.maze)
             ghost.update(self.level.maze, dt)
-            if ghost.touches(player):
+            if ghost.eaten or not ghost.touches(player):
+                continue
+            if not ghost.edible:
                 self._lose_life()
                 return
+            ghost.get_eaten()
+            self.score += self.config.points_per_ghost
         if self.level.cleared:
             self._next_level()
 
@@ -100,7 +110,8 @@ class Gameplay:
         self.gui.draw_maze(self.surface)
         self.gui.draw_pacgums(self.level.available_pacgums, self.level.available_super_pacgums)
         for ghost in self.level.ghosts:
-            self.gui.draw_ghost(ghost.position, ghost.name, ghost.facing)
+            self.gui.draw_ghost(ghost.position, ghost.name, ghost.facing,
+                                ghost.fright_time, ghost.eaten)
         player = self.level.player
         self.gui.draw_player(player.position, player.facing,
                              player.mouth_opening)
