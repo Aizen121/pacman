@@ -1,4 +1,6 @@
 """The ghosts: at each crossing, they take the shortest way to a target."""
+import random
+
 from src.mover import DIRECTIONS, OPPOSITE, Mover, can_move, neighbour
 from src.pathfinding import distances_from
 from src.player import BASE_SPEED, Player
@@ -98,15 +100,20 @@ class Ghost(Mover):
             dt *= FRIGHT_SPEED_RATIO  # half the time: half the way
         return super().update(maze, dt)
 
-    def choose_direction(self, maze: list[list[int]]) -> str | None:
-        """Take the open way whose next cell is the closest to the target."""
-        if self.eaten and self.home:
-            return None  # the eyes wait in the corner
+    def open_ways(self, maze: list[list[int]]) -> list[str]:
+        """Return the open ways, without turning back unless in a dead end."""
         back = OPPOSITE[self.direction] if self.direction else None
         ways = [way for way in PRIORITY
                 if way != back and can_move(maze, self.cell, way)]
         if not ways:  # dead end: turning back is the only way out
             ways = [way for way in PRIORITY if can_move(maze, self.cell, way)]
+        return ways
+
+    def choose_direction(self, maze: list[list[int]]) -> str | None:
+        """Take the open way whose next cell is the closest to the target."""
+        if self.eaten and self.home:
+            return None  # the eyes wait in the corner
+        ways = self.open_ways(maze)
         if not ways:
             return None
         distances = distances_from(maze, self.target)
@@ -138,3 +145,31 @@ class Pinky(Ghost):
         x = min(max(player.cell[0] + PINKY_LEAD * dx, 0), len(maze[0]) - 1)
         y = min(max(player.cell[1] + PINKY_LEAD * dy, 0), len(maze) - 1)
         self.target = (x, y) if maze[y][x] != 15 else player.cell
+
+
+INKY_RANDOMNESS = 0.5  # Inky takes a random way at half of the crossings
+
+
+class Inky(Ghost):
+    """Inky is unpredictable: at many crossings it takes a random way."""
+
+    def __init__(self, name: str, corner: tuple[int, int],
+                 speed: float = GHOST_SPEED_RATIO * BASE_SPEED) -> None:
+        """Create Inky with its own random generator.
+
+        Not the random module: the maze package reseeds it with the fixed
+        seed of level 1, so Inky would make the same moves in every game.
+        """
+        super().__init__(name, corner, speed)
+        self.rng = random.Random()
+
+    def choose_direction(self, maze: list[list[int]]) -> str | None:
+        """Take a random way INKY_RANDOMNESS of the time, else chase.
+
+        An edible ghost runs away and eaten eyes go home: never at random.
+        """
+        if (self.edible or self.eaten
+                or self.rng.random() >= INKY_RANDOMNESS):
+            return super().choose_direction(maze)
+        ways = self.open_ways(maze)
+        return self.rng.choice(ways) if ways else None

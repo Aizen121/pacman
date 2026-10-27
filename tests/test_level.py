@@ -89,7 +89,7 @@ def test_level_is_cleared_when_everything_is_eaten() -> None:
 
 
 def test_ghosts_wait_in_their_corners() -> None:
-    """Blinky starts in the top-right corner and Pinky in the top-left."""
+    """Blinky starts top-right, Pinky top-left and Inky bottom-right."""
     level = make_level(15, 15)
     assert [(g.name, g.cell) for g in level.ghosts] == [
-        ("blinky", (14, 0)), ("pinky", (0, 0))]
+        ("blinky", (14, 0)), ("pinky", (0, 0)), ("inky", (14, 14))]

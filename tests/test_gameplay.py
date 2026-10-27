@@ -81,12 +81,13 @@ def test_last_level_returns_to_the_menu(gameplay: Gameplay,
 
 
 def test_ghosts_start_in_their_corners(gameplay: Gameplay) -> None:
-    """Blinky top-right, Pinky top-left, both a bit slower than Pac-Man."""
-    width, _ = gameplay.level.dimensions
-    blinky, pinky = gameplay.level.ghosts
+    """Blinky, Pinky and Inky in 3 corners, a bit slower than Pac-Man."""
+    width, height = gameplay.level.dimensions
+    blinky, pinky, inky = gameplay.level.ghosts
     assert (blinky.name, blinky.cell) == ("blinky", (width - 1, 0))
     assert (pinky.name, pinky.cell) == ("pinky", (0, 0))
-    for ghost in (blinky, pinky):
+    assert (inky.name, inky.cell) == ("inky", (width - 1, height - 1))
+    for ghost in (blinky, pinky, inky):
         assert ghost.speed == pytest.approx(0.9 * gameplay.level.player.speed)
 
 
@@ -139,7 +140,7 @@ def test_an_eaten_ghost_is_harmless(gameplay: Gameplay) -> None:
 def test_eaten_ghosts_are_eyes(gameplay: Gameplay,
                                monkeypatch: pytest.MonkeyPatch) -> None:
     """An eaten ghost is drawn as eyes; an edible one is drawn too."""
-    blinky, pinky = gameplay.level.ghosts
+    blinky, pinky, _ = gameplay.level.ghosts
     blinky.fright_time = 1.9  # edible, flashing
     pinky.get_eaten()
     drawn: list[tuple[str, bool]] = []
@@ -152,7 +153,7 @@ def test_eaten_ghosts_are_eyes(gameplay: Gameplay,
         real_draw(pos, name, facing, fright_time, eaten)
     monkeypatch.setattr(gameplay.gui, "draw_ghost", spy)
     gameplay.draw()
-    assert drawn == [("blinky", False), ("pinky", True)]
+    assert drawn == [("blinky", False), ("pinky", True), ("inky", False)]
 
 
 def test_time_runs_down(gameplay: Gameplay) -> None:

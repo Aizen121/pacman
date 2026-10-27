@@ -1,8 +1,10 @@
 """Tests for src/ghost.py: how a ghost chooses its way."""
+import random
+
 import pytest
 
 from src.game.level import Level
-from src.ghost import FRIGHT_TIME, RESPAWN_DELAY, Ghost, Pinky
+from src.ghost import FRIGHT_TIME, RESPAWN_DELAY, Ghost, Inky, Pinky
 from src.parser import Config, LevelSize
 from src.player import Player
 
@@ -11,6 +13,8 @@ from src.player import Player
 RING = [[9, 5, 3], [14, 15, 10], [13, 5, 6]]
 # 7 cells in a row, closed at both ends: a straight corridor.
 CORRIDOR = [[13, 5, 5, 5, 5, 5, 7]]
+# 3 x 3 cells with no inner wall: (1, 1) is a crossing of four ways.
+OPEN = [[9, 1, 3], [8, 0, 2], [12, 4, 6]]
 
 
 def test_default_speed_is_90_percent_of_pacman() -> None:
@@ -89,6 +93,53 @@ def test_catches_a_still_pacman_on_a_real_maze() -> None:
         if ghost.touches(player):
             break
     assert ghost.touches(player)
+
+
+def inky_choices(inky: Inky, maze: list[list[int]],
+                 direction: str | None) -> set[str | None]:
+    """Return every way Inky takes in 300 tries from the same spot."""
+    seen: set[str | None] = set()
+    for _ in range(300):
+        inky.direction = direction
+        seen.add(inky.choose_direction(maze))
+    return seen
+
+
+def test_inky_wanders_but_never_turns_back() -> None:
+    """Random ways are open ones, never back where it comes from."""
+    inky = Inky("inky", (1, 1))
+    inky.rng = random.Random(42)
+    inky.target = (2, 1)
+    assert inky_choices(inky, OPEN, "right") == {"up", "down", "right"}
+
+
+def test_inky_without_randomness_chases_like_blinky(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """With no randomness, Inky always takes the shortest way."""
+    monkeypatch.setattr("src.ghost.INKY_RANDOMNESS", 0.0)
+    inky = Inky("inky", (1, 1))
+    inky.target = (2, 1)
+    assert inky_choices(inky, OPEN, "right") == {"right"}
+
+
+def test_edible_inky_flees_instead_of_wandering(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Even when always random, an edible Inky runs away from Pac-Man."""
+    monkeypatch.setattr("src.ghost.INKY_RANDOMNESS", 1.0)
+    inky = Inky("inky", (0, 0))
+    inky.frighten()
+    inky.flee(Player((2, 0)))
+    assert inky_choices(inky, RING, None) == {"down"}
+
+
+def test_inky_randomness_survives_the_maze_seed() -> None:
+    """The maze package reseeds random for level 1, not Inky's generator."""
+    draws = []
+    for _ in range(2):
+        inky = Level(LevelSize(width=15, height=15), Config(), 42).ghosts[2]
+        assert isinstance(inky, Inky)
+        draws.append(inky.rng.random())
+    assert draws[0] != draws[1]
 
 
 def test_an_edible_ghost_runs_away() -> None:
