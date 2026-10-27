@@ -4,7 +4,8 @@ from pathlib import Path
 import pygame
 import pytest
 
-from src.constants import EYE_COLOR, GHOST_COLORS, MAZE_LEFT, PUPIL_COLOR
+from src.constants import (EYE_COLOR, GHOST_COLORS, LOGO_COLOR, MAZE_LEFT,
+                           PUPIL_COLOR)
 from src.game.scores import Scores
 from src.gui import GUI
 from src.parser import Config
@@ -72,6 +73,24 @@ def test_pacman_stays_smaller_than_a_cell(gui: GUI) -> None:
         assert gui.pacman_frames[("right", 0)].get_width() < gui.tile
 
 
+def test_logo_sprite_fills_a_cell_inside_its_walls(gui: GUI) -> None:
+    """A lit "42" cell is cream, between the walls of the cell."""
+    for size in (15, 42):
+        gui.set_layout(size, size)
+        inner = gui.tile - 2 * gui.wall
+        assert gui.logo_sprite.get_size() == (inner, inner)
+        assert tuple(gui.logo_sprite.get_at((0, 0)))[:3] == LOGO_COLOR
+
+
+@pytest.mark.parametrize("seconds, shown", [
+    (90, "1:30"), (89.2, "1:30"), (59.5, "1:00"), (9, "0:09"),
+    (0.2, "0:01"), (0, "0:00"), (600, "10:00")])
+def test_time_is_shown_as_minutes_and_seconds(seconds: float,
+                                              shown: str) -> None:
+    """The HUD shows the time left as m:ss, rounded up."""
+    assert GUI.format_time(seconds) == shown
+
+
 def test_ghost_sprite_shape() -> None:
     """Round head, body color in the middle, transparent corners."""
     red = GHOST_COLORS["blinky"]
@@ -126,7 +145,7 @@ def test_every_screen_draws_on_usual_screens(
     gui.draw_main_menu(1)
     gui.draw_highscores(Scores(str(tmp_path / "scores.json")))
     gui.draw_instructions(Config())
-    gui.draw_hud(1234, 2, 9)
+    gui.draw_hud(1234, 2, 9, 87.2)
     for rect in gui.menu_rects() + [gui.back_rect()]:
         assert 0 <= rect.top and rect.bottom <= size[1]
 

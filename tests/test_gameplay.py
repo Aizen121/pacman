@@ -1,4 +1,5 @@
 """Tests for src/game/gameplay.py: eating, score and level changes."""
+import math
 from pathlib import Path
 
 import pygame
@@ -152,6 +153,32 @@ def test_eaten_ghosts_are_eyes(gameplay: Gameplay,
     monkeypatch.setattr(gameplay.gui, "draw_ghost", spy)
     gameplay.draw()
     assert drawn == [("blinky", False), ("pinky", True)]
+
+
+def test_time_runs_down(gameplay: Gameplay) -> None:
+    """Each frame takes its duration off the time left."""
+    gameplay.update([], 1.0)
+    assert gameplay.time_left == pytest.approx(89.0)
+
+
+def test_time_up_costs_a_life(gameplay: Gameplay) -> None:
+    """Out of time: one life less, and the timer starts again."""
+    gameplay.time_left = 0.5
+    gameplay.update([], 1.0)
+    assert gameplay.lives == 2
+    assert gameplay.time_left == 90.0
+
+
+def test_the_42_empties_from_the_top(gameplay: Gameplay) -> None:
+    """All of the "42" is lit at first, its bottom half at half time."""
+    logo = gameplay.level.logo
+    assert len(logo) == 18 and gameplay._lit_logo() == logo
+    gameplay.time_left = 45.0
+    lit = gameplay._lit_logo()
+    assert len(lit) == math.ceil(len(logo) / 2)
+    assert lit == logo[len(logo) - len(lit):]  # the bottom cells stay
+    gameplay.time_left = 0.0
+    assert gameplay._lit_logo() == []
 
 
 def test_losing_the_last_life_returns_to_the_menu(gameplay: Gameplay,

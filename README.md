@@ -158,12 +158,14 @@ Why these limits:
 - Pac-Man moves on the grid as a cell plus a progress toward the next cell. He goes 4 cells per second on level 1, and 0.2 more on each following level. He turns at cell centres, remembering a direction pressed too early, and can make a U-turn at any time. Walls are checked with the maze's wall bitmask.
 - Pac-Man is drawn by code as a disc minus a mouth wedge, pre-rendered in 12 frames (4 directions × 3 mouth openings). The mouth closes on each cell centre and opens wide halfway, so he chomps once per cell, at his own speed.
 - Pac-Man eats a pacgum or a super-pacgum when he arrives on its cell, and scores the points set in the configuration. A level is won once every pacgum and super-pacgum is eaten. The next level then starts with the same score. After the last level, the game goes back to the main menu until the victory screen exists.
-- The score, the level number and the lives are shown left of the maze.
-- Ghosts use the same grid movement as Pac-Man, through a shared `Mover` class. At each crossing, a ghost takes the way whose next cell is closest to its target. Distances are counted along the corridors with a breadth-first search, so ghosts go around walls instead of bumping into them. A ghost never turns back on its own, except in a dead end. Blinky (red) targets Pac-Man's cell, at 90 % of his speed.
-- Touching a ghost costs a life: Pac-Man respawns in the middle and the ghost in its corner. With no life left, the game goes back to the main menu until the game-over screen exists.
+- The score, the level number, the time left (m:ss) and the lives are shown left of the maze.
+- Each level lasts at most `level_max_time` seconds. The "42" in the middle of the maze is also a gauge of that time: its 18 cells empty from the top, one at a time (every 5 seconds with the default 90). When the time runs out, Pac-Man loses a life and the timer starts again; the pacgums already eaten stay eaten. Mazes smaller than 14×10 have no "42", so only the HUD shows the time.
+- Ghosts use the same grid movement as Pac-Man, through a shared `Mover` class. At each crossing, a ghost takes the way whose next cell is closest to its target. Distances are counted along the corridors with a breadth-first search, so ghosts go around walls instead of bumping into them. A ghost never turns back on its own, except in a dead end. Blinky (red) targets Pac-Man's cell. Pinky (pink) targets 4 cells ahead of Pac-Man as the crow flies, as in the arcade game, so it often comes from another side. Both go at 90 % of his speed.
+- Touching a ghost costs a life: Pac-Man respawns in the middle and the ghosts in their corners. With no life left, the game goes back to the main menu until the game-over screen exists.
+- A super-pacgum makes the ghosts edible for 6 seconds: they turn blue, flash white in their last 2 seconds, and run away at half speed, taking the way farthest from Pac-Man (the same breadth-first search, with the largest distance instead of the smallest). Eating one scores `points_per_ghost`. Its eyes then go back to its corner at twice its speed and wait there, and the ghost revives once 5 seconds have passed since it was eaten.
 - The visual identity is "arcade neon": night-blue background, neon-blue walls, cream "42" cells, peach pacgums and amber titles. The palette is defined in `src/constants.py`. Every position, font and icon is computed from the size of the screen, and the main menu, the BACK buttons and the menus react to the mouse.
 - Every maze fits the window. Cells are at most 50 pixels and shrink for big mazes (17 pixels for 42×42). The maze is centred right of the HUD, and its walls and sprites are redrawn at that size. Images are never scaled, because MiniLibX has no equivalent.
-- **TODO:** level timer (task 5.8), Pinky, Inky and Clyde and the edible mode (tasks 6.x), victory and game-over screens (task 8.4), cheat mode (tasks 10.x), packaging (tasks 12.x).
+- **TODO:** Inky and Clyde (tasks 6.x), pause menu (task 8.3), victory and game-over screens with name entry (tasks 8.4, 9.2), cheat mode (tasks 10.x), packaging (tasks 12.x).
 
 ## General Software Architecture
 
@@ -181,7 +183,7 @@ pac-man.py ─ Pacman            application, state machine and main loop
 Player and Ghost both extend Mover (src/mover.py): movement on the grid.
 ```
 
-`Pacman` switches between the states `main_menu`, `highscores`, `instructions` and `game`. **TODO:** pause, game-over and victory states, and the other three ghosts (tasks 6.x).
+`Pacman` switches between the states `main_menu`, `highscores`, `instructions` and `game`. **TODO:** pause, game-over and victory states, and the last two ghosts, Inky and Clyde (tasks 6.x).
 
 ## Project Management
 
@@ -235,3 +237,4 @@ We use AI (Claude Code, by Anthropic) as a pair-programming tutor. It reads and 
 | 2026-10-26 | Edible ghosts, step 2 (7.4) | Proposed the blue ghost sprites that flash white in their last 2 seconds (same pixel-drawn sprite, other colors), hiding eaten ghosts, the instructions line and 5 tests; checked the result on screenshots; Amine approved the code before it was written |
 | 2026-10-26 | Eaten ghosts go home (6.5, 7.4) | After Amine asked for the arcade behaviour, measured the trip back to the corners per maze size and proposed the eyes going home at twice the speed, waiting there until 5 s have passed since the ghost was eaten, the eyes-only sprite and 4 tests (plus 2 updated); Amine approved the code before it was written |
 | 2026-10-26 | Highscores fix (9.1, part of 9.2, 9.3; Raf's file, fixed on Amine's decision) | Found by running the code that a missing leaderboard file made the second launch fail, that the name regex matched nothing and that `add_entry` would crash; proposed the rewrite of `Scores` (rules checked on load and add, warnings instead of exits), integer scores in the provided file and 9 tests (16 cases); Amine approved the code before it was written |
+| 2026-10-27 | Level timer and "42" gauge (5.8, 7.5) | After Amine's idea of a "42" that shrinks with the time left, proposed the countdown, the time-up rule (a life lost, chosen by Amine), the "42" emptying from the top with pre-rendered cells (blits only), the HUD line in m:ss (Amine's choice), 5 tests and an update of the outdated ghost lines of this README; checked the result on screenshots; Amine approved the code before it was written |

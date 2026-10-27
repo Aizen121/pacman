@@ -122,6 +122,10 @@ class GUI:
             max(1, round(3 * scale)), PACGUM_COLOR)
         self.super_sprite = self.make_circle_sprite(
             max(2, round(6 * scale)), PACGUM_COLOR)
+        # the inside of a "42" cell, between its walls
+        inner = self.tile - 2 * self.wall
+        self.logo_sprite = pygame.Surface((inner, inner))
+        self.draw_rect(self.logo_sprite, LOGO_COLOR, 0, 0, inner, inner)
         radius = max(3, round((TILE // 2 - 4) * scale))
         self.pacman_frames = {
             (facing, frame): self.make_pacman_sprite(radius, angle, mouth)
@@ -386,15 +390,16 @@ class GUI:
     # ------------------------------------------------------------ game
 
     def create_maze_surface(self, maze: list[list[int]]) -> pygame.Surface:
-        """Draw the walls of maze once, on a surface blitted every frame."""
+        """Draw the walls of maze once, on a surface blitted every frame.
+
+        The "42" cells stay empty here: draw_logo fills them every frame.
+        """
         tile, wall = self.tile, self.wall
         surface = pygame.Surface((len(maze[0]) * tile, len(maze) * tile))
         surface.fill(BG_COLOR)
         for y, row in enumerate(maze):
             for x, cell in enumerate(row):
                 px, py = x * tile, y * tile
-                if cell == 15:
-                    self.draw_rect(surface, LOGO_COLOR, px, py, tile, tile)
                 if cell & TOP:
                     self.draw_rect(surface, WALL_COLOR, px, py, tile, wall)
                 if cell & RIGHT:
@@ -420,6 +425,14 @@ class GUI:
         self.screen.fill(BG_COLOR)
         self.screen.blit(maze_surface, self.offset)
         self._draw_back_button()
+
+    def draw_logo(self, cells: list[tuple[int, int]]) -> None:
+        """Fill these cells of the "42"; the others stay empty."""
+        ox, oy = self.offset
+        for x, y in cells:
+            px = ox + x * self.tile + self.wall
+            py = oy + y * self.tile + self.wall
+            self.screen.blit(self.logo_sprite, (px, py))
 
     def draw_player(self, pos: tuple[float, float], facing: str,
                     opening: float) -> None:
@@ -458,10 +471,18 @@ class GUI:
         py = oy + pos[1] * self.tile + (self.tile - height) // 2
         self.screen.blit(sprite, (px, py))
 
-    def draw_hud(self, score: int, level: int, lives: int) -> None:
-        """Draw the score, the level and the lives left of the maze."""
+    @staticmethod
+    def format_time(seconds: float) -> str:
+        """Return seconds as m:ss, rounded up: 90 -> "1:30", 0.2 -> "0:01"."""
+        whole = max(0, math.ceil(seconds))
+        return f"{whole // 60}:{whole % 60:02d}"
+
+    def draw_hud(self, score: int, level: int, lives: int,
+                 time_left: float) -> None:
+        """Draw the score, level, time and lives left of the maze."""
         y = MARGIN * 2
-        for label, value in (("SCORE", str(score)), ("LEVEL", str(level))):
+        for label, value in (("SCORE", str(score)), ("LEVEL", str(level)),
+                             ("TIME", self.format_time(time_left))):
             self._text(self.hud_font, label, HIGHLIGHT_COLOR, MARGIN, y)
             y += self.hud_font.get_height() * 3 // 2
             self._text(self.menu_font, value, TEXT_COLOR, MARGIN, y)

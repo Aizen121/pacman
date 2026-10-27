@@ -5,6 +5,7 @@ from .level import Level, RANDOM_SEED
 from src.ghost import GHOST_SPEED_RATIO
 from src.player import level_speed
 import importlib
+import math
 import pygame
 
 # Arrow keys, and the WASD keys by physical position (scancodes), so the
@@ -26,7 +27,6 @@ class Gameplay:
         self.gui = gui
         self.config = config
         self.scores = scores
-        self.level_timer = 0
         self.score = 0
         self.lives = config.lives
         self.level_index = 0
@@ -42,7 +42,7 @@ class Gameplay:
             ghost.speed = GHOST_SPEED_RATIO * self.level.player.speed
         self.gui.set_layout(*self.level.dimensions)
         self.surface = self.gui.create_maze_surface(self.level.maze)
-        self.level_timer = 0
+        self.time_left = float(self.config.level_max_time)  # seconds
 
     def update(self, events: list[pygame.event.Event], dt: float) -> None:
 
@@ -82,6 +82,26 @@ class Gameplay:
             self.score += self.config.points_per_ghost
         if self.level.cleared:
             self._next_level()
+            return
+        self.time_left -= dt
+        if self.time_left <= 0:
+            self._time_up()
+
+    def _time_up(self) -> None:
+        """Out of time: one life less, then the level timer starts again."""
+        self._lose_life()
+        self.time_left = float(self.config.level_max_time)
+
+    def _lit_logo(self) -> list[tuple[int, int]]:
+        """Return the cells of the "42" still lit, as a gauge of the time.
+
+        The logo empties from the top, one cell at a time, as the time
+        left goes down; Level.logo lists its cells row by row, top first.
+        """
+        logo = self.level.logo
+        lit = math.ceil(len(logo) * self.time_left
+                        / self.config.level_max_time)
+        return logo[len(logo) - lit:]
 
     def _next_level(self) -> None:
         """Load the next level, or go back to the menu after the last one."""
@@ -108,6 +128,7 @@ class Gameplay:
     def draw(self) -> None:
 
         self.gui.draw_maze(self.surface)
+        self.gui.draw_logo(self._lit_logo())
         self.gui.draw_pacgums(self.level.available_pacgums, self.level.available_super_pacgums)
         for ghost in self.level.ghosts:
             self.gui.draw_ghost(ghost.position, ghost.name, ghost.facing,
@@ -115,4 +136,5 @@ class Gameplay:
         player = self.level.player
         self.gui.draw_player(player.position, player.facing,
                              player.mouth_opening)
-        self.gui.draw_hud(self.score, self.level_index + 1, self.lives)
+        self.gui.draw_hud(self.score, self.level_index + 1, self.lives,
+                          self.time_left)
